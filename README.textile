@@ -1,0 +1,7 @@
+h2. AutoMongoBackup
+
+This is a very barebones port of the "AutoMySQLBackup":http://sourceforge.net/projects/automysqlbackup/ project. This bash script will allow you to do daily backups of a Mongo database. It includes periodic rotation so that you can keep historical weekly and monthly backups, as well as daily.
+
+h2. License
+
+This is released under GPL version 2.
