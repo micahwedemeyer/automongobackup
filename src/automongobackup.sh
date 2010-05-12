@@ -1,8 +1,10 @@
 #!/bin/bash
 #
 # MongoDB Backup Script
-# VER. 0.1 - Port of http://sourceforge.net/projects/automysqlbackup/
-# for use with MongoDB
+# VER. 0.1
+# Note, this is a lobotomized port of AutoMySQLBackup
+# (http://sourceforge.net/projects/automysqlbackup/) for use with 
+# MongoDB.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -76,7 +78,6 @@ DOWEEKLY=6
 # default to backup "this server".(to backup multiple servers make
 # copies of this file and set the options for that server)
 #
-#
 # You can change the backup storage location from /backups to anything
 # you like by using the BACKUPDIR setting..
 #
@@ -103,52 +104,9 @@ DOWEEKLY=6
 #
 # === Advanced options doc's ===
 #
-# The list of MDBNAMES is the DB's to be backed up only monthly. You should
-# always include "mysql" in this list to backup your user/password
-# information along with any other DBs that you only feel need to
-# be backed up monthly. (if using a hosted server then you should
-# probably remove "mysql" as your provider will be backing this up)
-# NOTE: If DBNAMES="all" then MDBNAMES has no effect as all DBs will be backed
-# up anyway.
-#
-# If you set DBNAMES="all" you can configure the option DBEXCLUDE. Other
-# wise this option will not be used.
-# This option can be used if you want to backup all dbs, but you want 
-# exclude some of them. (eg. a db is to big).
-#
-# Set CREATE_DATABASE to "yes" (the default) if you want your SQL-Dump to create
-# a database with the same name as the original database when restoring.
-# Saying "no" here will allow your to specify the database name you want to
-# restore your dump into, making a copy of the database by using the dump
-# created with automongobackup.
-# NOTE: Not used if SEPDIR=no
-#
-# The SEPDIR option allows you to choose to have all DBs backed up to
-# a single file (fast restore of entire server in case of crash) or to
-# seperate directories for each DB (each DB can be restored seperately
-# in case of single DB corruption or loss).
-#
 # To set the day of the week that you would like the weekly backup to happen
 # set the DOWEEKLY setting, this can be a value from 1 to 7 where 1 is Monday,
 # The default is 6 which means that weekly backups are done on a Saturday.
-#
-# COMP is used to choose the copmression used, options are gzip or bzip2.
-# bzip2 will produce slightly smaller files but is more processor intensive so
-# may take longer to complete.
-#
-# COMMCOMP is used to enable or diable mysql client to server compression, so
-# it is useful to save bandwidth when backing up a remote MySQL server over
-# the network. 
-#
-# LATEST is to store an additional copy of the latest backup to a standard
-# location so it can be downloaded bt thrid party scripts.
-#
-# If the DB's being backed up make use of large BLOB fields then you may need
-# to increase the MAX_ALLOWED_PACKET setting, for example 16MB..
-#
-# When connecting to localhost as the DB server (DBHOST=localhost) sometimes
-# the system can have issues locating the socket file.. This can now be set
-# using the SOCKET parameter.. An example may be SOCKET=/private/tmp/mysql.sock
 #
 # Use PREBACKUP and POSTBACKUP to specify Per and Post backup commands
 # or scripts to perform tasks either before or after the backup process.
@@ -316,7 +274,7 @@ echo ======================================================================
 		
 	# Daily Backup
 	else
-		echo Daily Backup of Databases \( $DBNAMES \)
+		echo Daily Backup of Databases
 		echo
 		echo Rotating last weeks Backup...
 		eval rm -fv "$BACKUPDIR/daily/*.$DOW.*" 
