@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # MongoDB Backup Script
-# VER. 0.1
+# VER. 0.2
 # Note, this is a lobotomized port of AutoMySQLBackup
 # (http://sourceforge.net/projects/automysqlbackup/) for use with 
 # MongoDB.
@@ -61,6 +61,15 @@ MAXATTSIZE="4000"
 
 # Which day do you want weekly backups? (1 to 7 where 1 is Monday)
 DOWEEKLY=6
+
+# Choose Compression type. (gzip or bzip2)
+COMP="gzip"
+
+# Choose if the uncompressed folder should be deleted after compression has completed
+CLEANUP="yes"
+
+# Additionally keep a copy of the most recent backup in a seperate directory.
+LATEST="yes"
 
 # Command to run before backups (uncomment to use)
 #PREBACKUP="/etc/mysql-backup-pre"
@@ -145,6 +154,13 @@ DOWEEKLY=6
 #=====================================================================
 # Change Log
 #=====================================================================
+# 
+# VER 0.2 - (2010-05-27) (author: Gregory Barchard)
+# 	-Added back the compression option for automatically creating
+#	tgz or bz2 archives
+#	-Added a cleanup option to optionally remove the database dump
+#	after creating the archives
+#	-Removed unnecessary path additions
 #
 # VER 0.1 - (2010-05-11)
 #   Initial Release
@@ -158,7 +174,7 @@ DOWEEKLY=6
 #=====================================================================
 #=====================================================================
 #=====================================================================
-PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/mysql/bin:/Users/micah/mongo/mongodb-osx-x86_64-1.4.0/bin
+PATH=/usr/local/bin:/usr/bin:/bin
 DATE=`date +%Y-%m-%d_%Hh%Mm`				# Datestamp e.g 2002-09-21
 DOW=`date +%A`							# Day of the week e.g. Monday
 DNOW=`date +%u`						# Day number of the week 1 to 7 where 1 represents Monday
@@ -198,6 +214,15 @@ if [ ! -e "$BACKUPDIR/monthly" ]	# Check Monthly Directory exists.
 	mkdir -p "$BACKUPDIR/monthly"
 fi
 
+if [ "$LATEST" = "yes" ]
+then
+	if [ ! -e "$BACKUPDIR/latest" ]	# Check Latest Directory exists.
+	then
+		mkdir -p "$BACKUPDIR/latest"
+	fi
+eval rm -fv "$BACKUPDIR/latest/*"
+fi
+
 # IO redirection for logging.
 touch $LOGFILE
 exec 6>&1           # Link file descriptor #6 with stdout.
@@ -217,6 +242,31 @@ mongodump --host=$DBHOST --out=$1 $OPT
 return 0
 }
 
+# Compression function plus latest copy
+SUFFIX=""
+compression () {
+if [ "$COMP" = "gzip" ]; then
+	tar -czpf "$1.tgz" "$1"
+	echo
+	echo Backup Information for "$1"
+	tar -l "$1.tgz"
+	SUFFIX=".tgz"
+elif [ "$COMP" = "bzip2" ]; then
+	echo Compression information for "$1.bz2"
+	tar -cCjpf "$1.bz2" "$1"
+	SUFFIX=".bz2"
+else
+	echo "No compression option set, check advanced settings"
+fi
+if [ "$LATEST" = "yes" ]; then
+	cp $1$SUFFIX "$BACKUPDIR/latest/"
+fi
+if [ "$CLEANUP" = "yes" ]; then
+	echo Cleaning up folder at "$1"
+	rm -rf "$1"
+fi	
+return 0
+}
 
 # Run command before we begin
 if [ "$PREBACKUP" ]
@@ -252,6 +302,7 @@ echo ======================================================================
 	if [ $DOM = "01" ]; then
 		echo Monthly Full Backup
 		  dbdump "$BACKUPDIR/monthly/$DATE.$M"
+		  compression "$BACKUPDIR/monthly/$DATE.$M"
 		echo ----------------------------------------------------------------------
 	fi
 
@@ -270,6 +321,7 @@ echo ======================================================================
 		eval rm -fv "$BACKUPDIR/weekly/week.$REMW.*" 
 		echo
 			dbdump "$BACKUPDIR/weekly/week.$W.$DATE"
+			compression "$BACKUPDIR/weekly/week.$W.$DATE"
 		echo ----------------------------------------------------------------------
 		
 	# Daily Backup
@@ -280,6 +332,7 @@ echo ======================================================================
 		eval rm -fv "$BACKUPDIR/daily/*.$DOW.*" 
 		echo
 			dbdump "$BACKUPDIR/daily/$DATE.$DOW"
+			compression "$BACKUPDIR/daily/$DATE.$DOW"
 		echo ----------------------------------------------------------------------
 	fi
 echo Backup End Time `date`
@@ -303,7 +356,7 @@ if [ "$POSTBACKUP" ]
 fi
 
 #Clean up IO redirection
-exec 1>&6 6>&-      # Restore stdout and close file descriptor #6.
+#exec 1>&6 6>&-      # Restore stdout and close file descriptor #6.
 exec 1>&7 7>&-      # Restore stdout and close file descriptor #7.
 
 if [ "$MAILCONTENT" = "log" ]
