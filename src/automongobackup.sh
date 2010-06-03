@@ -246,24 +246,24 @@ return 0
 SUFFIX=""
 compression () {
 if [ "$COMP" = "gzip" ]; then
-	tar -czf "$1.tgz" "$1"
+	cd $1 && tar -cvf "$2.tgz" "$2"
 	echo
-	echo Backup Information for "$1"
-	tar -t "$1.tgz"
+	echo Backup Information for "$1$2"
+	#cd $1 && tar -t "$2.tgz"
 	SUFFIX=".tgz"
 elif [ "$COMP" = "bzip2" ]; then
-	echo Compression information for "$1.bz2"
-	tar -cjf "$1.bz2" "$1"
+	echo Compression information for "$1$2.bz2"
+	cd $1 && tar -cvjf "$2.bz2" "$2"
 	SUFFIX=".bz2"
 else
 	echo "No compression option set, check advanced settings"
 fi
 if [ "$LATEST" = "yes" ]; then
-	cp $1$SUFFIX "$BACKUPDIR/latest/"
+	cp $1$2$SUFFIX "$BACKUPDIR/latest/"
 fi
 if [ "$CLEANUP" = "yes" ]; then
-	echo Cleaning up folder at "$1"
-	rm -rf "$1"
+	echo Cleaning up folder at "$1$2"
+	rm -rf "$1$2"
 fi	
 return 0
 }
@@ -302,7 +302,7 @@ echo ======================================================================
 	if [ $DOM = "01" ]; then
 		echo Monthly Full Backup
 		  dbdump "$BACKUPDIR/monthly/$DATE.$M"
-		  compression "$BACKUPDIR/monthly/$DATE.$M"
+		  compression "$BACKUPDIR/monthly/" "$DATE.$M"
 		echo ----------------------------------------------------------------------
 	fi
 
@@ -321,7 +321,7 @@ echo ======================================================================
 		eval rm -fv "$BACKUPDIR/weekly/week.$REMW.*" 
 		echo
 			dbdump "$BACKUPDIR/weekly/week.$W.$DATE"
-			compression "$BACKUPDIR/weekly/week.$W.$DATE"
+			compression "$BACKUPDIR/weekly/" "week.$W.$DATE"
 		echo ----------------------------------------------------------------------
 		
 	# Daily Backup
@@ -332,7 +332,7 @@ echo ======================================================================
 		eval rm -fv "$BACKUPDIR/daily/*.$DOW.*" 
 		echo
 			dbdump "$BACKUPDIR/daily/$DATE.$DOW"
-			compression "$BACKUPDIR/daily/$DATE.$DOW"
+			compression "$BACKUPDIR/daily/" "$DATE.$DOW"
 		echo ----------------------------------------------------------------------
 	fi
 echo Backup End Time `date`
@@ -393,5 +393,5 @@ eval rm -f "$LOGERR"
 
 #exit $STATUS
 
-# Temporarily hardcoded to return 0. There is an warning thrown by tar which would otherwise prevent the script from completing
+# Temporarily hardcoded to return 0. There is a print out from mongodump saying: "connected to: 127.0.0.1" which causes the script to think there is an error
 exit 0
