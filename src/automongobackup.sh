@@ -46,7 +46,7 @@ BACKUPDIR="/var/backups/mongodb"
 # - files : send log file and sql files as attachments (see docs)
 # - stdout : will simply output the log to the screen if run manually.
 # - quiet : Only send logs if an error occurs to the MAILADDR.
-MAILCONTENT="log"
+MAILCONTENT="stdout"
 
 # Set the maximum allowed email size in k. (4000 = approx 5MB email [see docs])
 MAXATTSIZE="4000"
@@ -246,14 +246,14 @@ return 0
 SUFFIX=""
 compression () {
 if [ "$COMP" = "gzip" ]; then
-	tar -czpf "$1.tgz" "$1"
+	tar -czf "$1.tgz" "$1"
 	echo
 	echo Backup Information for "$1"
-	tar -l "$1.tgz"
+	tar -t "$1.tgz"
 	SUFFIX=".tgz"
 elif [ "$COMP" = "bzip2" ]; then
 	echo Compression information for "$1.bz2"
-	tar -cCjpf "$1.bz2" "$1"
+	tar -cjf "$1.bz2" "$1"
 	SUFFIX=".bz2"
 else
 	echo "No compression option set, check advanced settings"
@@ -356,7 +356,7 @@ if [ "$POSTBACKUP" ]
 fi
 
 #Clean up IO redirection
-#exec 1>&6 6>&-      # Restore stdout and close file descriptor #6.
+exec 1>&6 6>&-      # Restore stdout and close file descriptor #6.
 exec 1>&7 7>&-      # Restore stdout and close file descriptor #7.
 
 if [ "$MAILCONTENT" = "log" ]
@@ -391,4 +391,7 @@ fi
 eval rm -f "$LOGFILE"
 eval rm -f "$LOGERR"
 
-exit $STATUS
+#exit $STATUS
+
+# Temporarily hardcoded to return 0. There is an warning thrown by tar which would otherwise prevent the script from completing
+exit 0
