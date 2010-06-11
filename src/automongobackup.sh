@@ -28,11 +28,11 @@
 
 # Username to access the mongo server e.g. dbuser
 # Unnecessary if authentication is off
-# USERNAME=XXX
+# DBUSERNAME=XXX
 
 # Username to access the mongo server e.g. password
 # Unnecessary if authentication is off
-# PASSWORD=XXX
+# DBPASSWORD=XXX
 
 # Host name (or IP address) of mongo server e.g localhost
 DBHOST=127.0.0.1
@@ -83,7 +83,7 @@ LATEST="yes"
 #=====================================================================
 # Options documentation
 #=====================================================================
-# Set USERNAME and PASSWORD of a user that has at least SELECT permission
+# Set DBUSERNAME and DBPASSWORD of a user that has at least SELECT permission
 # to ALL databases.
 #
 # Set the DBHOST option to the server you wish to backup, leave the
@@ -194,9 +194,9 @@ BACKUPFILES=""
 OPT=""			# OPT string for use with mongodump
 
 # Do we need to use a username/password?
-if [ "$USERNAME" ]
+if [ "$DBUSERNAME" ]
   then 
-  OPT="$OPT --username=$USERNAME --password=$PASSWORD"
+  OPT="$OPT --username=$DBUSERNAME --password=$DBPASSWORD"
 fi
 
 # Create required directories
