@@ -161,6 +161,7 @@ LATEST="yes"
 # VER 0.3 - (2010-06-11)
 # - Added the DBPORT parameter
 # - Changed USERNAME and PASSWORD to DBUSERNAME and DBPASSWORD
+# - Fixed some bugs with compression
 #
 # VER 0.2 - (2010-05-27) (author: Gregory Barchard)
 # 	-Added back the compression option for automatically creating
@@ -253,15 +254,13 @@ return 0
 SUFFIX=""
 compression () {
 if [ "$COMP" = "gzip" ]; then
-	cd $1 && tar -cvf "$2.tgz" "$2"
-	echo
-	echo Backup Information for "$1$2"
-	#cd $1 && tar -t "$2.tgz"
-	SUFFIX=".tgz"
+  SUFFIX=".tgz"
+  echo Tar and gzip to "$2$SUFFIX"
+	cd $1 && tar -cvzf "$2$SUFFIX" "$2"
 elif [ "$COMP" = "bzip2" ]; then
-	echo Compression information for "$1$2.bz2"
-	cd $1 && tar -cvjf "$2.bz2" "$2"
-	SUFFIX=".bz2"
+  SUFFIX=".tar.bz2"
+  echo Tar and bzip2 to "$2$SUFFIX"
+	cd $1 && tar -cvjf "$2$SUFFIX" "$2"
 else
 	echo "No compression option set, check advanced settings"
 fi
