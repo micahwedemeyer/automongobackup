@@ -37,6 +37,9 @@
 # Host name (or IP address) of mongo server e.g localhost
 DBHOST=127.0.0.1
 
+# Port that mongo is listening on 
+DBPORT=27017
+
 # Backup directory location e.g /backups
 BACKUPDIR="/var/backups/mongodb"
 
@@ -155,6 +158,9 @@ LATEST="yes"
 # Change Log
 #=====================================================================
 # 
+# VER 0.3 - (2010-06-11)
+# - Added the DBPORT parameter
+#
 # VER 0.2 - (2010-05-27) (author: Gregory Barchard)
 # 	-Added back the compression option for automatically creating
 #	tgz or bz2 archives
@@ -238,7 +244,7 @@ exec 2> $LOGERR     # stderr replaced with file $LOGERR.
 
 # Database dump function
 dbdump () {
-mongodump --host=$DBHOST --out=$1 $OPT
+mongodump --host=$DBHOST:$DBPORT --out=$1 $OPT
 return 0
 }
 
