@@ -158,6 +158,10 @@ LATEST="yes"
 # Change Log
 #=====================================================================
 # 
+# VER 0.4 - (2010-10-26)
+# - Cleaned up warning message to make it clear that it can usually be
+# safely ignored
+#
 # VER 0.3 - (2010-06-11)
 # - Added the DBPORT parameter
 # - Changed USERNAME and PASSWORD to DBUSERNAME and DBPASSWORD
@@ -378,26 +382,19 @@ else
 			cat "$LOGFILE"
 			echo
 			echo "###### WARNING ######"
-			echo "Errors reported during AutoMongoBackup execution.. Backup failed"
-			echo "Error log below.."
+			echo "STDERR written to during mongodump execution."
+			echo "The backup probably succeeded, as mongodump sometimes writes to STDERR, but you may wish to scan the error log below:"
 			cat "$LOGERR"
 	else
 		cat "$LOGFILE"
 	fi	
 fi
 
-if [ -s "$LOGERR" ]
-	then
-		STATUS=1
-	else
-		STATUS=0
-fi
+# TODO: Would be nice to know if there were any *actual* errors in the $LOGERR
+STATUS=1
 
 # Clean up Logfile
 eval rm -f "$LOGFILE"
 eval rm -f "$LOGERR"
 
-#exit $STATUS
-
-# Temporarily hardcoded to return 0. There is a print out from mongodump saying: "connected to: 127.0.0.1" which causes the script to think there is an error
-exit 0
+exit $STATUS
