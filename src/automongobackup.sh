@@ -1,7 +1,9 @@
 #!/bin/bash
 #
 # MongoDB Backup Script
-# VER. 0.3
+# VER. 0.4
+# More Info: http://github.com/micahwedemeyer/automongobackup
+
 # Note, this is a lobotomized port of AutoMySQLBackup
 # (http://sourceforge.net/projects/automysqlbackup/) for use with 
 # MongoDB.
@@ -193,7 +195,7 @@ DNOW=`date +%u`						# Day number of the week 1 to 7 where 1 represents Monday
 DOM=`date +%d`							# Date of the Month e.g. 27
 M=`date +%B`							# Month e.g January
 W=`date +%V`							# Week Number e.g 37
-VER=0.3									# Version Number
+VER=0.4									# Version Number
 LOGFILE=$BACKUPDIR/$DBHOST-`date +%N`.log		# Logfile Name
 LOGERR=$BACKUPDIR/ERRORS_$DBHOST-`date +%N`.log		# Logfile Name
 BACKUPFILES=""
