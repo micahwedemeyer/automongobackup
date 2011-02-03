@@ -271,7 +271,7 @@ else
 	echo "No compression option set, check advanced settings"
 fi
 if [ "$LATEST" = "yes" ]; then
-	cp $1$2$SUFFIX "$BACKUPDIR/latest/"
+	cp -l $1$2$SUFFIX "$BACKUPDIR/latest/"
 fi
 if [ "$CLEANUP" = "yes" ]; then
 	echo Cleaning up folder at "$1$2"
@@ -301,11 +301,15 @@ if [ "$DBHOST" = "localhost" ]; then
 else
 	HOST=$DBHOST
 fi
+
+# replica set fix
+DBHOST=$(mongo --host $DBHOST --quiet --eval "var im = rs.isMaster(); if(im.ismaster && im.hosts) { im.hosts[2] } else { '$DBHOST' }")
+
 	
 echo ======================================================================
 echo AutoMongoBackup VER $VER
 echo 
-echo Backup of Database Server - $HOST
+echo Backup of Database Server - $HOST on $DBHOST
 echo ======================================================================
 
 echo Backup Start `date`
