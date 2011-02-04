@@ -75,6 +75,11 @@ CLEANUP="yes"
 
 # Additionally keep a copy of the most recent backup in a seperate directory.
 LATEST="yes"
+# Make Hardlink not a copy
+LATESTLINK="yes"
+
+# Choose other Server if is Replica-Set Master
+REPLICAONSLAVE="yes"
 
 # Command to run before backups (uncomment to use)
 #PREBACKUP="/etc/mysql-backup-pre"
@@ -159,6 +164,10 @@ LATEST="yes"
 #=====================================================================
 # Change Log
 #=====================================================================
+#
+# VER 0.5 - (2011-02-04) (author: Jan Doberstein)
+# 	- Added replicaset support (don't Backup on Master)
+# 	- Added Hard Support for 'latest' Copy
 # 
 # VER 0.4 - (2010-10-26)
 # - Cleaned up warning message to make it clear that it can usually be
@@ -271,7 +280,11 @@ else
 	echo "No compression option set, check advanced settings"
 fi
 if [ "$LATEST" = "yes" ]; then
-	cp -l $1$2$SUFFIX "$BACKUPDIR/latest/"
+	if [ "$LATESTLINK" = "yes" ];then
+		COPY="cp -l"
+	else
+		COPY="cp"
+	$COPY $1$2$SUFFIX "$BACKUPDIR/latest/"
 fi
 if [ "$CLEANUP" = "yes" ]; then
 	echo Cleaning up folder at "$1$2"
@@ -302,9 +315,10 @@ else
 	HOST=$DBHOST
 fi
 
-# replica set fix
-DBHOST=$(mongo --host $DBHOST --quiet --eval "var im = rs.isMaster(); if(im.ismaster && im.hosts) { im.hosts[2] } else { '$DBHOST' }")
-
+# Replicaset Choose Slave if Master
+if [ "REPLICAONSLAVE" = "yes" ];then
+	DBHOST=$(mongo --host $DBHOST --quiet --eval "var im = rs.isMaster(); if(im.ismaster && im.hosts) { im.hosts[2] } else { '$DBHOST' }")
+fi
 	
 echo ======================================================================
 echo AutoMongoBackup VER $VER
