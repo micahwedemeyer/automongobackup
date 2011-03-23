@@ -285,6 +285,7 @@ if [ "$LATEST" = "yes" ]; then
 	else
 		COPY="cp"
 	$COPY $1$2$SUFFIX "$BACKUPDIR/latest/"
+	fi
 fi
 if [ "$CLEANUP" = "yes" ]; then
 	echo Cleaning up folder at "$1$2"
