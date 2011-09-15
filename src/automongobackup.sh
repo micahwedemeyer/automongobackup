@@ -1,11 +1,11 @@
 #!/bin/bash
 #
 # MongoDB Backup Script
-# VER. 0.4
+# VER. 0.6
 # More Info: http://github.com/micahwedemeyer/automongobackup
 
 # Note, this is a lobotomized port of AutoMySQLBackup
-# (http://sourceforge.net/projects/automysqlbackup/) for use with 
+# (http://sourceforge.net/projects/automysqlbackup/) for use with
 # MongoDB.
 #
 # This program is free software; you can redistribute it and/or modify
@@ -17,7 +17,7 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -30,17 +30,17 @@
 
 # Username to access the mongo server e.g. dbuser
 # Unnecessary if authentication is off
-# DBUSERNAME=XXX
+# DBUSERNAME=""
 
 # Username to access the mongo server e.g. password
 # Unnecessary if authentication is off
-# DBPASSWORD=XXX
+# DBPASSWORD=""
 
 # Host name (or IP address) of mongo server e.g localhost
-DBHOST=127.0.0.1
+DBHOST="127.0.0.1"
 
-# Port that mongo is listening on 
-DBPORT=27017
+# Port that mongo is listening on
+DBPORT="27017"
 
 # Backup directory location e.g /backups
 BACKUPDIR="/var/backups/mongodb"
@@ -57,8 +57,7 @@ MAILCONTENT="stdout"
 MAXATTSIZE="4000"
 
 # Email Address to send mail to? (user@domain.com)
-#MAILADDR=XXX
-
+# MAILADDR=""
 
 # ============================================================
 # === ADVANCED OPTIONS ( Read the doc's below for details )===
@@ -75,17 +74,21 @@ CLEANUP="yes"
 
 # Additionally keep a copy of the most recent backup in a seperate directory.
 LATEST="yes"
+
 # Make Hardlink not a copy
 LATESTLINK="yes"
+
+# Use oplog for point-in-time snapshotting.
+OPLOG="yes"
 
 # Choose other Server if is Replica-Set Master
 REPLICAONSLAVE="yes"
 
 # Command to run before backups (uncomment to use)
-#PREBACKUP="/etc/mysql-backup-pre"
+# PREBACKUP=""
 
 # Command run after backups (uncomment to use)
-#POSTBACKUP="/etc/mysql-backup-post"
+# POSTBACKUP=""
 
 #=====================================================================
 # Options documentation
@@ -105,7 +108,7 @@ REPLICAONSLAVE="yes"
 # email addresses in a space seperated list.
 # (If you set mail content to "log" you will require access to the "mail" program
 # on your server. If you set this to "files" you will have to have mutt installed
-# on your server. If you set it to "stdout" it will log to the screen if run from 
+# on your server. If you set it to "stdout" it will log to the screen if run from
 # the console or to the cron job owner if run through cron. If you set it to "quiet"
 # logs will only be mailed if there are errors reported. )
 #
@@ -113,7 +116,7 @@ REPLICAONSLAVE="yes"
 # Finally copy automongobackup.sh to anywhere on your server and make sure
 # to set executable permission. You can also copy the script to
 # /etc/cron.daily to have it execute automatically every night or simply
-# place a symlink in /etc/cron.daily to the file if you wish to keep it 
+# place a symlink in /etc/cron.daily to the file if you wish to keep it
 # somwhere else.
 # NOTE:On Debian copy the file with no extention for it to be run
 # by cron e.g just name the file "automongobackup"
@@ -150,7 +153,7 @@ REPLICAONSLAVE="yes"
 #
 # I take no resposibility for any data loss or corruption when using
 # this script..
-# This script will not help in the event of a hard drive crash. If a 
+# This script will not help in the event of a hard drive crash. If a
 # copy of the backup has not be stored offline or on another PC..
 # You should copy your backups offline regularly for best protection.
 #
@@ -165,10 +168,16 @@ REPLICAONSLAVE="yes"
 # Change Log
 #=====================================================================
 #
+# VER 0.6 - (2011-09-15) (author: Krzysztof Wilczynski)
+#       - Added support for --oplog during taking backup for
+#         point-in-time snapshotting.
+#       - Added filter for "mongodump" writing "connected to:"
+#         on the standard error, which is not desirable.
+#
 # VER 0.5 - (2011-02-04) (author: Jan Doberstein)
 # 	- Added replicaset support (don't Backup on Master)
 # 	- Added Hard Support for 'latest' Copy
-# 
+#
 # VER 0.4 - (2010-10-26)
 # - Cleaned up warning message to make it clear that it can usually be
 # safely ignored
@@ -199,21 +208,27 @@ REPLICAONSLAVE="yes"
 #=====================================================================
 PATH=/usr/local/bin:/usr/bin:/bin
 DATE=`date +%Y-%m-%d_%Hh%Mm`				# Datestamp e.g 2002-09-21
-DOW=`date +%A`							# Day of the week e.g. Monday
+DOW=`date +%A`						# Day of the week e.g. Monday
 DNOW=`date +%u`						# Day number of the week 1 to 7 where 1 represents Monday
-DOM=`date +%d`							# Date of the Month e.g. 27
-M=`date +%B`							# Month e.g January
-W=`date +%V`							# Week Number e.g 37
-VER=0.4									# Version Number
+DOM=`date +%d`						# Date of the Month e.g. 27
+M=`date +%B`						# Month e.g January
+W=`date +%V`						# Week Number e.g 37
+VER=0.6							# Version Number
 LOGFILE=$BACKUPDIR/$DBHOST-`date +%N`.log		# Logfile Name
 LOGERR=$BACKUPDIR/ERRORS_$DBHOST-`date +%N`.log		# Logfile Name
 BACKUPFILES=""
-OPT=""			# OPT string for use with mongodump
+OPT=""							# OPT string for use with mongodump
 
 # Do we need to use a username/password?
 if [ "$DBUSERNAME" ]
-  then 
+  then
   OPT="$OPT --username=$DBUSERNAME --password=$DBPASSWORD"
+fi
+
+# Do we Use oplog for point-in-time snapshotting?
+if [ "$OPLOG" = "yes" ]
+  then
+  OPT="$OPT --oplog"
 fi
 
 # Create required directories
@@ -290,7 +305,7 @@ fi
 if [ "$CLEANUP" = "yes" ]; then
 	echo Cleaning up folder at "$1$2"
 	rm -rf "$1$2"
-fi	
+fi
 return 0
 }
 
@@ -317,13 +332,13 @@ else
 fi
 
 # Replicaset Choose Slave if Master
-if [ "REPLICAONSLAVE" = "yes" ];then
+if [ "$REPLICAONSLAVE" = "yes" ];then
 	DBHOST=$(mongo --host $DBHOST --quiet --eval "var im = rs.isMaster(); if(im.ismaster && im.hosts) { im.hosts[2] } else { '$DBHOST' }")
 fi
-	
+
 echo ======================================================================
 echo AutoMongoBackup VER $VER
-echo 
+echo
 echo Backup of Database Server - $HOST on $DBHOST
 echo ======================================================================
 
@@ -349,18 +364,18 @@ echo ======================================================================
 			else
 				REMW=`expr $W - 5`
 			fi
-		eval rm -fv "$BACKUPDIR/weekly/week.$REMW.*" 
+		eval rm -fv "$BACKUPDIR/weekly/week.$REMW.*"
 		echo
 			dbdump "$BACKUPDIR/weekly/week.$W.$DATE"
 			compression "$BACKUPDIR/weekly/" "week.$W.$DATE"
 		echo ----------------------------------------------------------------------
-		
+
 	# Daily Backup
 	else
 		echo Daily Backup of Databases
 		echo
 		echo Rotating last weeks Backup...
-		eval rm -fv "$BACKUPDIR/daily/*.$DOW.*" 
+		eval rm -fv "$BACKUPDIR/daily/*.$DOW.*"
 		echo
 			dbdump "$BACKUPDIR/daily/$DATE.$DOW"
 			compression "$BACKUPDIR/daily/" "$DATE.$DOW"
@@ -392,23 +407,38 @@ exec 1>&7 7>&-      # Restore stdout and close file descriptor #7.
 
 if [ "$MAILCONTENT" = "log" ]
 then
-	cat "$LOGFILE" | mail -s "Mongo Backup Log for $HOST - $DATE" $MAILADDR
-	if [ -s "$LOGERR" ]
-		then
-			cat "$LOGERR" | mail -s "ERRORS REPORTED: Mongo Backup error Log for $HOST - $DATE" $MAILADDR
-	fi
+        cat "$LOGFILE" | mail -s "Mongo Backup Log for $HOST - $DATE" $MAILADDR
+
+        if [ -s "$LOGERR" ]
+                then
+                        sed -i "/^connected/d" "$LOGERR"
+        fi
+
+        if [ -s "$LOGERR" ]
+                then
+                        if [ -s "$LOGERR" ]
+                                then
+                                        cat "$LOGERR"
+                                        cat "$LOGERR" | mail -s "ERRORS REPORTED: Mongo Backup error Log for $HOST - $DATE" $MAILADDR
+                        fi
+        fi
 else
-	if [ -s "$LOGERR" ]
-		then
-			cat "$LOGFILE"
-			echo
-			echo "###### WARNING ######"
-			echo "STDERR written to during mongodump execution."
-			echo "The backup probably succeeded, as mongodump sometimes writes to STDERR, but you may wish to scan the error log below:"
-			cat "$LOGERR"
-	else
-		cat "$LOGFILE"
-	fi	
+        if [ -s "$LOGERR" ]
+                then
+                        sed -i "/^connected/d" "$LOGERR"
+        fi
+
+        if [ -s "$LOGERR" ]
+                then
+                        cat "$LOGFILE"
+                        echo
+                        echo "###### WARNING ######"
+                        echo "STDERR written to during mongodump execution."
+                        echo "The backup probably succeeded, as mongodump sometimes writes to STDERR, but you may wish to scan the error log below:"
+                        cat "$LOGERR"
+        else
+                cat "$LOGFILE"
+        fi
 fi
 
 # TODO: Would be nice to know if there were any *actual* errors in the $LOGERR
