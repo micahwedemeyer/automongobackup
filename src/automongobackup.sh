@@ -28,6 +28,11 @@
 # (Detailed instructions below variables)
 #=====================================================================
 
+# External config - override default values set below
+# EXTERNAL_CONFIG="/etc/default/automongobackup"	# debian style
+EXTERNAL_CONFIG="/etc/sysconfig/automongobackup"	# centos style
+
+
 # Username to access the mongo server e.g. dbuser
 # Unnecessary if authentication is off
 # DBUSERNAME=""
@@ -206,6 +211,14 @@ REPLICAONSLAVE="yes"
 #=====================================================================
 #=====================================================================
 #=====================================================================
+
+# Include external config
+[ ! -z "$EXTERNAL_CONFIG" ] && [ -f "$EXTERNAL_CONFIG" ] && source "${EXTERNAL_CONFIG}"
+# Include extra config file if specified on commandline, e.g. for backuping several remote dbs from central server
+[ ! -z "$1" ] && [ -f "$1" ] && source ${1}
+
+#=====================================================================
+
 PATH=/usr/local/bin:/usr/bin:/bin
 DATE=`date +%Y-%m-%d_%Hh%Mm`				# Datestamp e.g 2002-09-21
 DOW=`date +%A`						# Day of the week e.g. Monday
