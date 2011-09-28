@@ -289,8 +289,10 @@ exec 2> $LOGERR     # stderr replaced with file $LOGERR.
 
 # Database dump function
 dbdump () {
-mongodump --host=$DBHOST:$DBPORT --out=$1 $OPT
-return 0
+  mongodump --host=$DBHOST:$DBPORT --out=$1 $OPT
+  [ -e "$1" ] && return 0
+  echo "ERROR: mongodump failed to create dumpfile: $1" >&2
+  return 1
 }
 
 # Compression function plus latest copy
@@ -360,7 +362,7 @@ echo ======================================================================
 	# Monthly Full Backup of all Databases
 	if [ $DOM = "01" ]; then
 		echo Monthly Full Backup
-		  dbdump "$BACKUPDIR/monthly/$DATE.$M"
+		  dbdump "$BACKUPDIR/monthly/$DATE.$M" &&
 		  compression "$BACKUPDIR/monthly/" "$DATE.$M"
 		echo ----------------------------------------------------------------------
 
@@ -378,7 +380,7 @@ echo ======================================================================
 			fi
 		eval rm -fv "$BACKUPDIR/weekly/week.$REMW.*"
 		echo
-			dbdump "$BACKUPDIR/weekly/week.$W.$DATE"
+			dbdump "$BACKUPDIR/weekly/week.$W.$DATE" &&
 			compression "$BACKUPDIR/weekly/" "week.$W.$DATE"
 		echo ----------------------------------------------------------------------
 
@@ -389,7 +391,7 @@ echo ======================================================================
 		echo Rotating last weeks Backup...
 		eval rm -fv "$BACKUPDIR/daily/*.$DOW.*"
 		echo
-			dbdump "$BACKUPDIR/daily/$DATE.$DOW"
+			dbdump "$BACKUPDIR/daily/$DATE.$DOW" &&
 			compression "$BACKUPDIR/daily/" "$DATE.$DOW"
 		echo ----------------------------------------------------------------------
 	fi
