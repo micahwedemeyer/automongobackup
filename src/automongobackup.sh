@@ -299,8 +299,8 @@ if [ "$LATEST" = "yes" ]; then
 		COPY="cp -l"
 	else
 		COPY="cp"
-	$COPY $1$2$SUFFIX "$BACKUPDIR/latest/"
 	fi
+	$COPY $1$2$SUFFIX "$BACKUPDIR/latest/"
 fi
 if [ "$CLEANUP" = "yes" ]; then
 	echo Cleaning up folder at "$1$2"
@@ -350,10 +350,9 @@ echo ======================================================================
 		  dbdump "$BACKUPDIR/monthly/$DATE.$M"
 		  compression "$BACKUPDIR/monthly/" "$DATE.$M"
 		echo ----------------------------------------------------------------------
-	fi
 
 	# Weekly Backup
-	if [ $DNOW = $DOWEEKLY ]; then
+	elif [ $DNOW = $DOWEEKLY ]; then
 		echo Weekly Backup
 		echo
 		echo Rotating 5 weeks Backups...
