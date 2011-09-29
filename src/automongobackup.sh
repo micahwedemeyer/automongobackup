@@ -28,6 +28,11 @@
 # (Detailed instructions below variables)
 #=====================================================================
 
+# External config - override default values set below
+# EXTERNAL_CONFIG="/etc/default/automongobackup"	# debian style
+EXTERNAL_CONFIG="/etc/sysconfig/automongobackup"	# centos style
+
+
 # Username to access the mongo server e.g. dbuser
 # Unnecessary if authentication is off
 # DBUSERNAME=""
@@ -206,6 +211,14 @@ REPLICAONSLAVE="yes"
 #=====================================================================
 #=====================================================================
 #=====================================================================
+
+# Include external config
+[ ! -z "$EXTERNAL_CONFIG" ] && [ -f "$EXTERNAL_CONFIG" ] && source "${EXTERNAL_CONFIG}"
+# Include extra config file if specified on commandline, e.g. for backuping several remote dbs from central server
+[ ! -z "$1" ] && [ -f "$1" ] && source ${1}
+
+#=====================================================================
+
 PATH=/usr/local/bin:/usr/bin:/bin
 DATE=`date +%Y-%m-%d_%Hh%Mm`				# Datestamp e.g 2002-09-21
 DOW=`date +%A`						# Day of the week e.g. Monday
@@ -276,8 +289,10 @@ exec 2> $LOGERR     # stderr replaced with file $LOGERR.
 
 # Database dump function
 dbdump () {
-mongodump --host=$DBHOST:$DBPORT --out=$1 $OPT
-return 0
+  mongodump --host=$DBHOST:$DBPORT --out=$1 $OPT
+  [ -e "$1" ] && return 0
+  echo "ERROR: mongodump failed to create dumpfile: $1" >&2
+  return 1
 }
 
 # Compression function plus latest copy
@@ -299,8 +314,8 @@ if [ "$LATEST" = "yes" ]; then
 		COPY="cp -l"
 	else
 		COPY="cp"
-	$COPY $1$2$SUFFIX "$BACKUPDIR/latest/"
 	fi
+	$COPY $1$2$SUFFIX "$BACKUPDIR/latest/"
 fi
 if [ "$CLEANUP" = "yes" ]; then
 	echo Cleaning up folder at "$1$2"
@@ -347,13 +362,12 @@ echo ======================================================================
 	# Monthly Full Backup of all Databases
 	if [ $DOM = "01" ]; then
 		echo Monthly Full Backup
-		  dbdump "$BACKUPDIR/monthly/$DATE.$M"
+		  dbdump "$BACKUPDIR/monthly/$DATE.$M" &&
 		  compression "$BACKUPDIR/monthly/" "$DATE.$M"
 		echo ----------------------------------------------------------------------
-	fi
 
 	# Weekly Backup
-	if [ $DNOW = $DOWEEKLY ]; then
+	elif [ $DNOW = $DOWEEKLY ]; then
 		echo Weekly Backup
 		echo
 		echo Rotating 5 weeks Backups...
@@ -366,7 +380,7 @@ echo ======================================================================
 			fi
 		eval rm -fv "$BACKUPDIR/weekly/week.$REMW.*"
 		echo
-			dbdump "$BACKUPDIR/weekly/week.$W.$DATE"
+			dbdump "$BACKUPDIR/weekly/week.$W.$DATE" &&
 			compression "$BACKUPDIR/weekly/" "week.$W.$DATE"
 		echo ----------------------------------------------------------------------
 
@@ -377,7 +391,7 @@ echo ======================================================================
 		echo Rotating last weeks Backup...
 		eval rm -fv "$BACKUPDIR/daily/*.$DOW.*"
 		echo
-			dbdump "$BACKUPDIR/daily/$DATE.$DOW"
+			dbdump "$BACKUPDIR/daily/$DATE.$DOW" &&
 			compression "$BACKUPDIR/daily/" "$DATE.$DOW"
 		echo ----------------------------------------------------------------------
 	fi
