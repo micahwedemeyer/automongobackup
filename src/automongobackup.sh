@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # MongoDB Backup Script
-# VER. 0.7
+# VER. 0.8
 # More Info: http://github.com/micahwedemeyer/automongobackup
 
 # Note, this is a lobotomized port of AutoMySQLBackup
@@ -174,6 +174,11 @@ REPLICAONSLAVE="yes"
 #=====================================================================
 # Change Log
 #=====================================================================
+# VER 0.8 - (2011-10-02) (author: Krzysztof Wilczynski)
+#       - Added better support for selecting Secondary member in the
+#         Replica Sets that can be used to take backups without bothering
+#         busy Primary member too much.
+#
 # VER 0.7 - (2011-09-23) (author: Krzysztof Wilczynski)
 #       - Added support for --journal dring taking backup
 #         to enable journaling.
@@ -231,7 +236,7 @@ DNOW=`date +%u`						# Day number of the week 1 to 7 where 1 represents Monday
 DOM=`date +%d`						# Date of the Month e.g. 27
 M=`date +%B`						# Month e.g January
 W=`date +%V`						# Week Number e.g 37
-VER=0.7							# Version Number
+VER=0.8							# Version Number
 LOGFILE=$BACKUPDIR/$DBHOST-`date +%N`.log		# Logfile Name
 LOGERR=$BACKUPDIR/ERRORS_$DBHOST-`date +%N`.log		# Logfile Name
 BACKUPFILES=""
@@ -306,6 +311,48 @@ dbdump () {
   return 1
 }
 
+#
+# Select first available Secondary member in the Replica Sets and show its
+# host name and port.
+#
+function select_secondary_member {
+  # We will use indirect-reference hack to return variable from this function.
+  __return=$1
+
+  secondary=''
+
+  # Retrieve list of Replica Sets members from local MongoDB instance.
+  members=( $(mongo --quiet --eval \
+              'rs.isMaster().hosts.forEach(function(x) { print(x) })') )
+
+  # Process list of Replica Sets members and look for any Secondary ...
+  if [[ ${#members[@]} > 1 ]] ; then
+    for member in "${members[@]}" ; do
+      # Check if Seconday?  If so then break ...
+      case "$(mongo --quiet --host $member --eval 'rs.isMaster().ismaster')" in
+	'true')
+	  # Skip particular member if it is a Primary.
+	  continue
+	  ;;
+	'false')
+	  # First secondary wins ...
+	  secondary=$member
+	  break
+	;;
+	*)
+	  # Skip irrelevant entries.  Should not be any anyway ...
+	  continue
+	;;
+      esac
+    done
+  fi
+
+  if [[ -n "$secondary" ]] ; then
+    # Ugly hack to return value from a Bash function ...
+    eval $__return="'$secondary'"
+  fi
+}
+
 # Compression function plus latest copy
 SUFFIX=""
 compression () {
@@ -357,9 +404,18 @@ else
 	HOST=$DBHOST
 fi
 
-# Replicaset Choose Slave if Master
-if [ "$REPLICAONSLAVE" = "yes" ];then
-	DBHOST=$(mongo --host $DBHOST --quiet --eval "var im = rs.isMaster(); if(im.ismaster && im.hosts) { im.hosts[2] } else { '$DBHOST' }")
+# Try to select an available Secondary an use it, or fall-back to given host.
+if [ "x${REPLICAONSLAVE}" == "xyes" ] ; then
+  # Details of the Secondary member will be stored here ...
+  secondary=''
+
+  # Return value via indirect-reference hack ...
+  select_secondary_member secondary
+
+  if [[ -n "$secondary" ]] ; then
+    DBHOST=${secondary%%:*}
+    DBPORT=${secondary##*:}
+  fi
 fi
 
 echo ======================================================================
