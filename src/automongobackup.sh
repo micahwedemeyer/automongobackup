@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # MongoDB Backup Script
-# VER. 0.6
+# VER. 0.7
 # More Info: http://github.com/micahwedemeyer/automongobackup
 
 # Note, this is a lobotomized port of AutoMySQLBackup
@@ -31,7 +31,6 @@
 # External config - override default values set below
 # EXTERNAL_CONFIG="/etc/default/automongobackup"	# debian style
 EXTERNAL_CONFIG="/etc/sysconfig/automongobackup"	# centos style
-
 
 # Username to access the mongo server e.g. dbuser
 # Unnecessary if authentication is off
@@ -85,6 +84,9 @@ LATESTLINK="yes"
 
 # Use oplog for point-in-time snapshotting.
 OPLOG="yes"
+
+# Enable and use journaling.
+JOURNAL="yes"
 
 # Choose other Server if is Replica-Set Master
 REPLICAONSLAVE="yes"
@@ -172,6 +174,9 @@ REPLICAONSLAVE="yes"
 #=====================================================================
 # Change Log
 #=====================================================================
+# VER 0.7 - (2011-09-23) (author: Krzysztof Wilczynski)
+#       - Added support for --journal dring taking backup
+#         to enable journaling.
 #
 # VER 0.6 - (2011-09-15) (author: Krzysztof Wilczynski)
 #       - Added support for --oplog during taking backup for
@@ -226,7 +231,7 @@ DNOW=`date +%u`						# Day number of the week 1 to 7 where 1 represents Monday
 DOM=`date +%d`						# Date of the Month e.g. 27
 M=`date +%B`						# Month e.g January
 W=`date +%V`						# Week Number e.g 37
-VER=0.6							# Version Number
+VER=0.7							# Version Number
 LOGFILE=$BACKUPDIR/$DBHOST-`date +%N`.log		# Logfile Name
 LOGERR=$BACKUPDIR/ERRORS_$DBHOST-`date +%N`.log		# Logfile Name
 BACKUPFILES=""
@@ -238,10 +243,16 @@ if [ "$DBUSERNAME" ]
   OPT="$OPT --username=$DBUSERNAME --password=$DBPASSWORD"
 fi
 
-# Do we Use oplog for point-in-time snapshotting?
+# Do we use oplog for point-in-time snapshotting?
 if [ "$OPLOG" = "yes" ]
   then
   OPT="$OPT --oplog"
+fi
+
+# Do we enable and use journaling?
+if [ "$JOURNAL" = "yes" ]
+  then
+  OPT="$OPT --journal"
 fi
 
 # Create required directories
