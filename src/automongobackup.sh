@@ -287,7 +287,8 @@ then
 	then
 		mkdir -p "$BACKUPDIR/latest"
 	fi
-eval rm -fv "$BACKUPDIR/latest/*"
+
+	eval rm -f "$BACKUPDIR/latest/*"
 fi
 
 # IO redirection for logging.
@@ -295,11 +296,14 @@ touch $LOGFILE
 exec 6>&1           # Link file descriptor #6 with stdout.
                     # Saves stdout.
 exec > $LOGFILE     # stdout replaced with file $LOGFILE.
+
 touch $LOGERR
 exec 7>&2           # Link file descriptor #7 with stderr.
                     # Saves stderr.
 exec 2> $LOGERR     # stderr replaced with file $LOGERR.
 
+# When a desire is to receive log via e-mail then we close stdout and stderr.
+[ "x$MAILCONTENT" == "xlog" ] && exec 6>&- 7>&-
 
 # Functions
 
@@ -317,16 +321,14 @@ dbdump () {
 #
 function select_secondary_member {
   # We will use indirect-reference hack to return variable from this function.
-  __return=$1
-
-  secondary=''
+  local __return=$1
 
   # Retrieve list of Replica Sets members from local MongoDB instance.
   members=( $(mongo --quiet --eval \
               'rs.isMaster().hosts.forEach(function(x) { print(x) })') )
 
   # Process list of Replica Sets members and look for any Secondary ...
-  if [[ ${#members[@]} > 1 ]] ; then
+  if [ ${#members[@]} > 1 ] ; then
     for member in "${members[@]}" ; do
       # Check if Seconday?  If so then break ...
       case "$(mongo --quiet --host $member --eval 'rs.isMaster().ismaster')" in
@@ -347,7 +349,7 @@ function select_secondary_member {
     done
   fi
 
-  if [[ -n "$secondary" ]] ; then
+  if [ -n "$secondary" ] ; then
     # Ugly hack to return value from a Bash function ...
     eval $__return="'$secondary'"
   fi
@@ -406,20 +408,26 @@ fi
 
 # Try to select an available Secondary an use it, or fall-back to given host.
 if [ "x${REPLICAONSLAVE}" == "xyes" ] ; then
-  # Details of the Secondary member will be stored here ...
-  secondary=''
-
   # Return value via indirect-reference hack ...
   select_secondary_member secondary
 
-  if [[ -n "$secondary" ]] ; then
+  if [ -n "$secondary" ] ; then
     DBHOST=${secondary%%:*}
     DBPORT=${secondary##*:}
+  else
+    SECONDARY_WARNING="WARNING: No suitable Secondary found in the Replica Sets.  Falling back to ${DBHOST}."
   fi
 fi
 
 echo ======================================================================
 echo AutoMongoBackup VER $VER
+
+[ ! -z "$SECONDARY_WARNING" ] &&
+{
+	echo
+	echo "$SECONDARY_WARNING"
+}
+
 echo
 echo Backup of Database Server - $HOST on $DBHOST
 echo ======================================================================
@@ -445,7 +453,7 @@ echo ======================================================================
 			else
 				REMW=`expr $W - 5`
 			fi
-		eval rm -fv "$BACKUPDIR/weekly/week.$REMW.*"
+		eval rm -f "$BACKUPDIR/weekly/week.$REMW.*"
 		echo
 			dbdump "$BACKUPDIR/weekly/week.$W.$DATE" &&
 			compression "$BACKUPDIR/weekly/" "week.$W.$DATE"
@@ -454,9 +462,9 @@ echo ======================================================================
 	# Daily Backup
 	else
 		echo Daily Backup of Databases
-		echo
 		echo Rotating last weeks Backup...
-		eval rm -fv "$BACKUPDIR/daily/*.$DOW.*"
+		echo
+		eval rm -f "$BACKUPDIR/daily/*.$DOW.*"
 		echo
 			dbdump "$BACKUPDIR/daily/$DATE.$DOW" &&
 			compression "$BACKUPDIR/daily/" "$DATE.$DOW"
@@ -482,9 +490,8 @@ if [ "$POSTBACKUP" ]
 	echo ======================================================================
 fi
 
-#Clean up IO redirection
-exec 1>&6 6>&-      # Restore stdout and close file descriptor #6.
-exec 1>&7 7>&-      # Restore stdout and close file descriptor #7.
+# Clean up IO redirection if we plan not to deliver log via e-mail.
+[ ! "x$MAILCONTENT" == "xlog" ] && exec 1>&6 2>&7 6>&- 7>&-
 
 if [ "$MAILCONTENT" = "log" ]
 then
