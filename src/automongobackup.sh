@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # MongoDB Backup Script
-# VER. 0.8
+# VER. 0.9
 # More Info: http://github.com/micahwedemeyer/automongobackup
 
 # Note, this is a lobotomized port of AutoMySQLBackup
@@ -110,9 +110,10 @@ REPLICAONSLAVE="yes"
 # You can change the backup storage location from /backups to anything
 # you like by using the BACKUPDIR setting..
 #
-# The MAILCONTENT and MAILADDR options and pretty self explanitory, use
+# The MAILCONTENT and MAILADDR options and pretty self explanatory, use
 # these to have the backup log mailed to you at any email address or multiple
 # email addresses in a space seperated list.
+#
 # (If you set mail content to "log" you will require access to the "mail" program
 # on your server. If you set this to "files" you will have to have mutt installed
 # on your server. If you set it to "stdout" it will log to the screen if run from
@@ -125,19 +126,20 @@ REPLICAONSLAVE="yes"
 # /etc/cron.daily to have it execute automatically every night or simply
 # place a symlink in /etc/cron.daily to the file if you wish to keep it
 # somwhere else.
-# NOTE:On Debian copy the file with no extention for it to be run
+#
+# NOTE: On Debian copy the file with no extention for it to be run
 # by cron e.g just name the file "automongobackup"
 #
 # Thats it..
 #
 #
-# === Advanced options doc's ===
+# === Advanced options ===
 #
 # To set the day of the week that you would like the weekly backup to happen
 # set the DOWEEKLY setting, this can be a value from 1 to 7 where 1 is Monday,
 # The default is 6 which means that weekly backups are done on a Saturday.
 #
-# Use PREBACKUP and POSTBACKUP to specify Per and Post backup commands
+# Use PREBACKUP and POSTBACKUP to specify Pre and Post backup commands
 # or scripts to perform tasks either before or after the backup process.
 #
 #
@@ -145,26 +147,29 @@ REPLICAONSLAVE="yes"
 # Backup Rotation..
 #=====================================================================
 #
-# Daily Backups are rotated weekly..
+# Daily Backups are rotated weekly.
+#
 # Weekly Backups are run by default on Saturday Morning when
-# cron.daily scripts are run...Can be changed with DOWEEKLY setting..
-# Weekly Backups are rotated on a 5 week cycle..
-# Monthly Backups are run on the 1st of the month..
-# Monthly Backups are NOT rotated automatically...
+# cron.daily scripts are run. This can be changed with DOWEEKLY setting.
+#
+# Weekly Backups are rotated on a 5 week cycle.
+# Monthly Backups are run on the 1st of the month.
+# Monthly Backups are NOT rotated automatically.
+#
 # It may be a good idea to copy Monthly backups offline or to another
-# server..
+# server.
 #
 #=====================================================================
 # Please Note!!
 #=====================================================================
 #
 # I take no resposibility for any data loss or corruption when using
-# this script..
-# This script will not help in the event of a hard drive crash. If a
-# copy of the backup has not be stored offline or on another PC..
-# You should copy your backups offline regularly for best protection.
+# this script.
 #
-# Happy backing up...
+# This script will not help in the event of a hard drive crash. You 
+# should copy your backups offline or to another PC for best protection.
+#
+# Happy backing up!
 #
 #=====================================================================
 # Restoring
@@ -174,6 +179,10 @@ REPLICAONSLAVE="yes"
 #=====================================================================
 # Change Log
 #=====================================================================
+# VER 0.9 - (2011-10-28) (author: Joshua Keroes)
+#       - Fixed bugs and improved logic in select_secondary_member()
+#       - Fixed minor grammar issues and formatting in docs
+#
 # VER 0.8 - (2011-10-02) (author: Krzysztof Wilczynski)
 #       - Added better support for selecting Secondary member in the
 #         Replica Sets that can be used to take backups without bothering
@@ -190,27 +199,27 @@ REPLICAONSLAVE="yes"
 #         on the standard error, which is not desirable.
 #
 # VER 0.5 - (2011-02-04) (author: Jan Doberstein)
-# 	- Added replicaset support (don't Backup on Master)
-# 	- Added Hard Support for 'latest' Copy
+#       - Added replicaset support (don't Backup on Master)
+#       - Added Hard Support for 'latest' Copy
 #
 # VER 0.4 - (2010-10-26)
-# - Cleaned up warning message to make it clear that it can usually be
-# safely ignored
+#       - Cleaned up warning message to make it clear that it can 
+#         usually be safely ignored
 #
 # VER 0.3 - (2010-06-11)
-# - Added the DBPORT parameter
-# - Changed USERNAME and PASSWORD to DBUSERNAME and DBPASSWORD
-# - Fixed some bugs with compression
+#       - Added the DBPORT parameter
+#       - Changed USERNAME and PASSWORD to DBUSERNAME and DBPASSWORD
+#       - Fixed some bugs with compression
 #
 # VER 0.2 - (2010-05-27) (author: Gregory Barchard)
-# 	-Added back the compression option for automatically creating
-#	tgz or bz2 archives
-#	-Added a cleanup option to optionally remove the database dump
-#	after creating the archives
-#	-Removed unnecessary path additions
+#       - Added back the compression option for automatically creating
+#         tgz or bz2 archives
+#       - Added a cleanup option to optionally remove the database dump
+#         after creating the archives
+#       - Removed unnecessary path additions
 #
 # VER 0.1 - (2010-05-11)
-#   Initial Release
+#       - Initial Release
 #
 #=====================================================================
 #=====================================================================
@@ -230,13 +239,13 @@ REPLICAONSLAVE="yes"
 #=====================================================================
 
 PATH=/usr/local/bin:/usr/bin:/bin
-DATE=`date +%Y-%m-%d_%Hh%Mm`				# Datestamp e.g 2002-09-21
+DATE=`date +%Y-%m-%d_%Hh%Mm`		# Datestamp e.g 2002-09-21
 DOW=`date +%A`						# Day of the week e.g. Monday
 DNOW=`date +%u`						# Day number of the week 1 to 7 where 1 represents Monday
 DOM=`date +%d`						# Date of the Month e.g. 27
 M=`date +%B`						# Month e.g January
 W=`date +%V`						# Week Number e.g 37
-VER=0.8							# Version Number
+VER=0.9							    # Version Number
 LOGFILE=$BACKUPDIR/$DBHOST-`date +%N`.log		# Logfile Name
 LOGERR=$BACKUPDIR/ERRORS_$DBHOST-`date +%N`.log		# Logfile Name
 BACKUPFILES=""
@@ -323,32 +332,33 @@ function select_secondary_member {
   # We will use indirect-reference hack to return variable from this function.
   local __return=$1
 
-  # Retrieve list of Replica Sets members from local MongoDB instance.
+  # Return list of with all replica set members
   members=( $(mongo --quiet --eval \
-              'rs.isMaster().hosts.forEach(function(x) { print(x) })') )
-
-  # Process list of Replica Sets members and look for any Secondary ...
-  if [ ${#members[@]} > 1 ] ; then
-    for member in "${members[@]}" ; do
-      # Check if Seconday?  If so then break ...
-      case "$(mongo --quiet --host $member --eval 'rs.isMaster().ismaster')" in
-	'true')
-	  # Skip particular member if it is a Primary.
-	  continue
-	  ;;
-	'false')
-	  # First secondary wins ...
-	  secondary=$member
-	  break
-	;;
-	*)
-	  # Skip irrelevant entries.  Should not be any anyway ...
-	  continue
-	;;
-      esac
-    done
+      'rs.conf().members.forEach(function(x){ print(x.host) })') )
+  
+  # Check each replset member to see if it's a secondary and return it.
+  if [ ${#members[@]} -gt 1 ] ; then
+        for member in "${members[@]}" ; do
+            
+          is_secondary=$(mongo --quiet --host $member --eval 'rs.isMaster().secondary')
+          case "$is_secondary" in
+            'true')
+                # First secondary wins ...
+                secondary=$member
+                break
+              ;;
+            'false')
+                # Skip particular member if it is a Primary.
+                continue
+            ;;
+            *)
+              # Skip irrelevant entries.  Should not be any anyway ...
+              continue
+            ;;
+          esac
+      done
   fi
-
+  
   if [ -n "$secondary" ] ; then
     # Ugly hack to return value from a Bash function ...
     eval $__return="'$secondary'"
@@ -406,7 +416,7 @@ else
 	HOST=$DBHOST
 fi
 
-# Try to select an available Secondary an use it, or fall-back to given host.
+# Try to select an available secondary for the backup or fallback to DBHOST.
 if [ "x${REPLICAONSLAVE}" == "xyes" ] ; then
   # Return value via indirect-reference hack ...
   select_secondary_member secondary
