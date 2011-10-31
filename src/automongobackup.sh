@@ -335,18 +335,18 @@ function select_secondary_member {
   # Return list of with all replica set members
   members=( $(mongo --quiet --eval \
       'rs.conf().members.forEach(function(x){ print(x.host) })') )
-  
+
   # Check each replset member to see if it's a secondary and return it.
   if [ ${#members[@]} -gt 1 ] ; then
         for member in "${members[@]}" ; do
-            
+
           is_secondary=$(mongo --quiet --host $member --eval 'rs.isMaster().secondary')
           case "$is_secondary" in
             'true')
                 # First secondary wins ...
                 secondary=$member
                 break
-              ;;
+            ;;
             'false')
                 # Skip particular member if it is a Primary.
                 continue
@@ -358,7 +358,7 @@ function select_secondary_member {
           esac
       done
   fi
-  
+
   if [ -n "$secondary" ] ; then
     # Ugly hack to return value from a Bash function ...
     eval $__return="'$secondary'"
