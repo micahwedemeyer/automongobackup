@@ -540,7 +540,10 @@ else
 fi
 
 # TODO: Would be nice to know if there were any *actual* errors in the $LOGERR
-STATUS=1
+STATUS=0
+if [ -s "$LOGERR" ]; then
+  STATUS=1
+fi
 
 # Clean up Logfile
 eval rm -f "$LOGFILE"
