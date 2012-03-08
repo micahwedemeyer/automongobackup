@@ -40,6 +40,11 @@ EXTERNAL_CONFIG="/etc/sysconfig/automongobackup"	# centos style
 # Unnecessary if authentication is off
 # DBPASSWORD=""
 
+# Database name, e.g test
+# Unnecessary if you want to backup all databases
+# Note that this option can not be used with OPLOG="yes"
+# DBNAME=""
+
 # Host name (or IP address) of mongo server e.g localhost
 DBHOST="127.0.0.1"
 
@@ -101,7 +106,7 @@ REPLICAONSLAVE="yes"
 # Options documentation
 #=====================================================================
 # Set DBUSERNAME and DBPASSWORD of a user that has at least SELECT permission
-# to ALL databases.
+# to ALL databases. Alternatively set DBNAME and provide credentials to that DB.
 #
 # Set the DBHOST option to the server you wish to backup, leave the
 # default to backup "this server".(to backup multiple servers make
@@ -166,7 +171,7 @@ REPLICAONSLAVE="yes"
 # I take no resposibility for any data loss or corruption when using
 # this script.
 #
-# This script will not help in the event of a hard drive crash. You 
+# This script will not help in the event of a hard drive crash. You
 # should copy your backups offline or to another PC for best protection.
 #
 # Happy backing up!
@@ -203,7 +208,7 @@ REPLICAONSLAVE="yes"
 #       - Added Hard Support for 'latest' Copy
 #
 # VER 0.4 - (2010-10-26)
-#       - Cleaned up warning message to make it clear that it can 
+#       - Cleaned up warning message to make it clear that it can
 #         usually be safely ignored
 #
 # VER 0.3 - (2010-06-11)
@@ -257,10 +262,17 @@ if [ "$DBUSERNAME" ]
   OPT="$OPT --username=$DBUSERNAME --password=$DBPASSWORD"
 fi
 
-# Do we use oplog for point-in-time snapshotting?
-if [ "$OPLOG" = "yes" ]
+# Do we want one or all databases?
+if [ "$DBNAME" ]
   then
-  OPT="$OPT --oplog"
+  OPT="$OPT --db=$DBNAME"
+  else
+  # Do we use oplog for point-in-time snapshotting of all databases?
+  # Can not be used for single-database dumps
+  if [ "$OPLOG" = "yes"  ]
+    then
+      OPT="$OPT --oplog"
+  fi
 fi
 
 # Do we enable and use journaling?
