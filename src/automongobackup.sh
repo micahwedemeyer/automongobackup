@@ -503,10 +503,8 @@ if [ "$MAILCONTENT" = "log" ]; then
     fi
 
     if [ -s "$LOGERR" ]; then
-        if [ -s "$LOGERR" ]; then
-            cat "$LOGERR"
-            cat "$LOGERR" | mail -s "ERRORS REPORTED: Mongo Backup error Log for $HOST - $DATE" $MAILADDR
-        fi
+        cat "$LOGERR"
+        cat "$LOGERR" | mail -s "ERRORS REPORTED: Mongo Backup error Log for $HOST - $DATE" $MAILADDR
     fi
 else
     if [ -s "$LOGERR" ]; then
