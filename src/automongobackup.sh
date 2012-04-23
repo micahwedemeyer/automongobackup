@@ -169,7 +169,7 @@ REPLICAONSLAVE="yes"
 # I take no resposibility for any data loss or corruption when using
 # this script.
 #
-# This script will not help in the event of a hard drive crash. You 
+# This script will not help in the event of a hard drive crash. You
 # should copy your backups offline or to another PC for best protection.
 #
 # Happy backing up!
@@ -206,7 +206,7 @@ REPLICAONSLAVE="yes"
 #       - Added Hard Support for 'latest' Copy
 #
 # VER 0.4 - (2010-10-26)
-#       - Cleaned up warning message to make it clear that it can 
+#       - Cleaned up warning message to make it clear that it can
 #         usually be safely ignored
 #
 # VER 0.3 - (2010-06-11)
