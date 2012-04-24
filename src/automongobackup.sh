@@ -31,7 +31,7 @@
 # External config - override default values set below
 if [ -f "/etc/default/automongobackup" ]; then
     EXTERNAL_CONFIG="/etc/default/automongobackup"      # debian style
-elif [ -f "/etc/sysconfig/automongobackup"]; then
+elif [ -f "/etc/sysconfig/automongobackup" ]; then
     EXTERNAL_CONFIG="/etc/sysconfig/automongobackup"    # centos style
 fi
 
