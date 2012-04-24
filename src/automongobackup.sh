@@ -88,9 +88,6 @@ LATESTLINK="yes"
 # Use oplog for point-in-time snapshotting.
 OPLOG="yes"
 
-# Enable and use journaling.
-JOURNAL="yes"
-
 # Choose other Server if is Replica-Set Master
 REPLICAONSLAVE="yes"
 
@@ -262,11 +259,6 @@ fi
 # Do we use oplog for point-in-time snapshotting?
 if [ "$OPLOG" = "yes" ]; then
     OPT="$OPT --oplog"
-fi
-
-# Do we enable and use journaling?
-if [ "$JOURNAL" = "yes" ]; then
-    OPT="$OPT --journal"
 fi
 
 # Create required directories
