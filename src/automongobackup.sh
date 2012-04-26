@@ -28,13 +28,6 @@
 # (Detailed instructions below variables)
 #=====================================================================
 
-# External config - override default values set below
-if [ -f "/etc/default/automongobackup" ]; then
-    EXTERNAL_CONFIG="/etc/default/automongobackup"      # debian style
-elif [ -f "/etc/sysconfig/automongobackup" ]; then
-    EXTERNAL_CONFIG="/etc/sysconfig/automongobackup"    # centos style
-fi
-
 # Username to access the mongo server e.g. dbuser
 # Unnecessary if authentication is off
 # DBUSERNAME=""
@@ -231,25 +224,38 @@ REPLICAONSLAVE="yes"
 #=====================================================================
 #=====================================================================
 
-# Include external config
-[ ! -z "$EXTERNAL_CONFIG" ] && [ -f "$EXTERNAL_CONFIG" ] && source "${EXTERNAL_CONFIG}"
+shellout () {
+    if [ -n "$1" ]; then
+        echo $1
+        exit 1
+    fi
+    exit 0
+}
+
+# External config - override default values set above
+for x in default sysconfig; do
+  if [ -f "/etc/$x/automongobackup" ]; then
+      source /etc/$x/automongobackup
+  fi
+done
+
 # Include extra config file if specified on commandline, e.g. for backuping several remote dbs from central server
 [ ! -z "$1" ] && [ -f "$1" ] && source ${1}
 
 #=====================================================================
 
 PATH=/usr/local/bin:/usr/bin:/bin
-DATE=`date +%Y-%m-%d_%Hh%Mm`                    # Datestamp e.g 2002-09-21
-DOW=`date +%A`                                  # Day of the week e.g. Monday
-DNOW=`date +%u`                                 # Day number of the week 1 to 7 where 1 represents Monday
-DOM=`date +%d`                                  # Date of the Month e.g. 27
-M=`date +%B`                                    # Month e.g January
-W=`date +%V`                                    # Week Number e.g 37
-VER=0.9                                         # Version Number
-LOGFILE=$BACKUPDIR/$DBHOST-`date +%N`.log       # Logfile Name
-LOGERR=$BACKUPDIR/ERRORS_$DBHOST-`date +%N`.log # Logfile Name
+DATE=`date +%Y-%m-%d_%Hh%Mm`                      # Datestamp e.g 2002-09-21
+DOW=`date +%A`                                    # Day of the week e.g. Monday
+DNOW=`date +%u`                                   # Day number of the week 1 to 7 where 1 represents Monday
+DOM=`date +%d`                                    # Date of the Month e.g. 27
+M=`date +%B`                                      # Month e.g January
+W=`date +%V`                                      # Week Number e.g 37
+VER=0.9                                           # Version Number
+LOGFILE=$BACKUPDIR/$DBHOST-`date +%H%M`.log       # Logfile Name
+LOGERR=$BACKUPDIR/ERRORS_$DBHOST-`date +%H%M`.log # Logfile Name
 BACKUPFILES=""
-OPT=""                                          # OPT string for use with mongodump
+OPT=""                                            # OPT string for use with mongodump
 
 # Do we need to use a username/password?
 if [ "$DBUSERNAME" ]; then
@@ -262,28 +268,18 @@ if [ "$OPLOG" = "yes" ]; then
 fi
 
 # Create required directories
-if [ ! -e "$BACKUPDIR" ]; then              # Check Backup Directory exists.
-    mkdir -p "$BACKUPDIR"
-fi
-
-if [ ! -e "$BACKUPDIR/daily" ]; then        # Check Daily Directory exists.
-    mkdir -p "$BACKUPDIR/daily"
-fi
-
-if [ ! -e "$BACKUPDIR/weekly" ]; then       # Check Weekly Directory exists.
-    mkdir -p "$BACKUPDIR/weekly"
-fi
-
-if [ ! -e "$BACKUPDIR/monthly" ]; then      # Check Monthly Directory exists.
-    mkdir -p "$BACKUPDIR/monthly"
-fi
+mkdir -p $BACKUPDIR/{daily,weekly,monthly} || shellout 'failed to create directories'
 
 if [ "$LATEST" = "yes" ]; then
-    if [ ! -e "$BACKUPDIR/latest" ]; then   # Check Latest Directory exists.
-        mkdir -p "$BACKUPDIR/latest"
-    fi
+    rm -rf "$BACKUPDIR/latest"
+    mkdir -p "$BACKUPDIR/latest" || shellout 'failed to create directory'
+fi
 
-    eval rm -f "$BACKUPDIR/latest/*"
+# Check for correct sed usage
+if [ $(uname -s) = 'Darwin' -o $(uname -s) = 'FreeBSD' ]; then
+    SED="sed -i ''"
+else
+    SED="sed -i"
 fi
 
 # IO redirection for logging.
@@ -319,8 +315,7 @@ function select_secondary_member {
     local __return=$1
 
     # Return list of with all replica set members
-    members=( $(mongo --quiet --eval \
-        'rs.conf().members.forEach(function(x){ print(x.host) })') )
+    members=( $(mongo --quiet --host $DBHOST:$DBPORT --eval 'rs.conf().members.forEach(function(x){ print(x.host) })') )
 
     # Check each replset member to see if it's a secondary and return it.
     if [ ${#members[@]} -gt 1 ]; then
@@ -349,32 +344,32 @@ function select_secondary_member {
 }
 
 # Compression function plus latest copy
-SUFFIX=""
 compression () {
-    if [ "$COMP" = "gzip" ]; then
-        SUFFIX=".tgz"
-        echo Tar and gzip to "$2$SUFFIX"
-        cd $1 && tar -cvzf "$2$SUFFIX" "$2"
-    elif [ "$COMP" = "bzip2" ]; then
-        SUFFIX=".tar.bz2"
-        echo Tar and bzip2 to "$2$SUFFIX"
-        cd $1 && tar -cvjf "$2$SUFFIX" "$2"
+    SUFFIX=""
+    dir=$(dirname $1)
+    file=$(basename $1)
+    if [ -n "$COMP" ]; then
+        [ "$COMP" = "gzip" ] && SUFFIX=".tgz"
+        [ "$COMP" = "bzip2" ] && SUFFIX=".tar.bz2"
+        echo Tar and $COMP to "$file$SUFFIX"
+        cd "$dir" && tar -cf - "$file" | $COMP -c > "$file$SUFFIX"
+        cd - >/dev/null || return 1
     else
         echo "No compression option set, check advanced settings"
     fi
 
     if [ "$LATEST" = "yes" ]; then
         if [ "$LATESTLINK" = "yes" ];then
-            COPY="cp -l"
+            COPY="ln"
         else
             COPY="cp"
         fi
-        $COPY $1$2$SUFFIX "$BACKUPDIR/latest/"
+        $COPY "$1$SUFFIX" "$BACKUPDIR/latest/"
     fi
 
     if [ "$CLEANUP" = "yes" ]; then
-        echo Cleaning up folder at "$1$2"
-        rm -rf "$1$2"
+        echo Cleaning up folder at "$1"
+        rm -rf "$1"
     fi
 
     return 0
@@ -392,7 +387,7 @@ if [ "$PREBACKUP" ]; then
 fi
 
 # Hostname for LOG information
-if [ "$DBHOST" = "localhost" ]; then
+if [ "$DBHOST" = "localhost" -o "$DBHOST" = "127.0.0.1" ]; then
     HOST=`hostname`
     if [ "$SOCKET" ]; then
         OPT="$OPT --socket=$SOCKET"
@@ -417,11 +412,10 @@ fi
 echo ======================================================================
 echo AutoMongoBackup VER $VER
 
-[ ! -z "$SECONDARY_WARNING" ] &&
-{
+if [ ! -z "$SECONDARY_WARNING" ]; then
     echo
     echo "$SECONDARY_WARNING"
-}
+fi
 
 echo
 echo Backup of Database Server - $HOST on $DBHOST
@@ -429,42 +423,38 @@ echo ======================================================================
 
 echo Backup Start `date`
 echo ======================================================================
-    # Monthly Full Backup of all Databases
-    if [ $DOM = "01" ]; then
-        echo Monthly Full Backup
-            dbdump "$BACKUPDIR/monthly/$DATE.$M" &&
-            compression "$BACKUPDIR/monthly/" "$DATE.$M"
-        echo ----------------------------------------------------------------------
+# Monthly Full Backup of all Databases
+if [ $DOM = "01" ]; then
+    echo Monthly Full Backup
+    FILE="$BACKUPDIR/monthly/$DATE.$M"
 
-    # Weekly Backup
-    elif [ $DNOW = $DOWEEKLY ]; then
-        echo Weekly Backup
-        echo
-        echo Rotating 5 weeks Backups...
-            if [ "$W" -le 05 ]; then
-                REMW=`expr 48 + $W`
-            elif [ "$W" -lt 15 ]; then
-                REMW=0`expr $W - 5`
-            else
-                REMW=`expr $W - 5`
-            fi
-        eval rm -f "$BACKUPDIR/weekly/week.$REMW.*"
-        echo
-            dbdump "$BACKUPDIR/weekly/week.$W.$DATE" &&
-            compression "$BACKUPDIR/weekly/" "week.$W.$DATE"
-        echo ----------------------------------------------------------------------
-
-    # Daily Backup
+# Weekly Backup
+elif [ $DNOW = $DOWEEKLY ]; then
+    echo Weekly Backup
+    echo
+    echo Rotating 5 weeks Backups...
+    if [ "$W" -le 05 ]; then
+        REMW=`expr 48 + $W`
+    elif [ "$W" -lt 15 ]; then
+        REMW=0`expr $W - 5`
     else
-        echo Daily Backup of Databases
-        echo Rotating last weeks Backup...
-        echo
-        eval rm -f "$BACKUPDIR/daily/*.$DOW.*"
-        echo
-            dbdump "$BACKUPDIR/daily/$DATE.$DOW" &&
-            compression "$BACKUPDIR/daily/" "$DATE.$DOW"
-        echo ----------------------------------------------------------------------
+        REMW=`expr $W - 5`
     fi
+    rm -f "$BACKUPDIR/weekly/week.$REMW.*"
+    echo
+    FILE="$BACKUPDIR/weekly/week.$W.$DATE"
+
+# Daily Backup
+else
+    echo Daily Backup of Databases
+    echo Rotating last weeks Backup...
+    echo
+    rm -f "$BACKUPDIR/daily/*.$DOW.*"
+    echo
+    FILE="$BACKUPDIR/daily/$DATE.$DOW"
+fi
+dbdump $FILE && compression $FILE
+echo ----------------------------------------------------------------------
 echo Backup End Time `date`
 echo ======================================================================
 
@@ -487,22 +477,18 @@ fi
 # Clean up IO redirection if we plan not to deliver log via e-mail.
 [ ! "x$MAILCONTENT" == "xlog" ] && exec 1>&6 2>&7 6>&- 7>&-
 
+if [ -s "$LOGERR" ]; then
+    eval $SED "/^connected/d" "$LOGERR"
+fi
+
 if [ "$MAILCONTENT" = "log" ]; then
     cat "$LOGFILE" | mail -s "Mongo Backup Log for $HOST - $DATE" $MAILADDR
-
-    if [ -s "$LOGERR" ]; then
-        sed -i "/^connected/d" "$LOGERR"
-    fi
 
     if [ -s "$LOGERR" ]; then
         cat "$LOGERR"
         cat "$LOGERR" | mail -s "ERRORS REPORTED: Mongo Backup error Log for $HOST - $DATE" $MAILADDR
     fi
 else
-    if [ -s "$LOGERR" ]; then
-        sed -i "/^connected/d" "$LOGERR"
-    fi
-
     if [ -s "$LOGERR" ]; then
         cat "$LOGFILE"
         echo
@@ -522,7 +508,6 @@ if [ -s "$LOGERR" ]; then
 fi
 
 # Clean up Logfile
-eval rm -f "$LOGFILE"
-eval rm -f "$LOGERR"
+rm -f "$LOGFILE" "$LOGERR"
 
 exit $STATUS
