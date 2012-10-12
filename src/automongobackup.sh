@@ -440,7 +440,7 @@ elif [ $DNOW = $DOWEEKLY ]; then
     else
         REMW=`expr $W - 5`
     fi
-    rm -f "$BACKUPDIR/weekly/week.$REMW.*"
+    rm -f $BACKUPDIR/weekly/week.$REMW.*
     echo
     FILE="$BACKUPDIR/weekly/week.$W.$DATE"
 
@@ -449,7 +449,7 @@ else
     echo Daily Backup of Databases
     echo Rotating last weeks Backup...
     echo
-    rm -f "$BACKUPDIR/daily/*.$DOW.*"
+    rm -f $BACKUPDIR/daily/*.$DOW.*
     echo
     FILE="$BACKUPDIR/daily/$DATE.$DOW"
 fi
