@@ -36,6 +36,10 @@
 # Unnecessary if authentication is off
 # DBPASSWORD=""
 
+# Database for authentication to the mongo server e.g. admin
+# Unnecessary if authentication is off
+# DBAUTHDB=""
+
 # Host name (or IP address) of mongo server e.g localhost
 DBHOST="127.0.0.1"
 
@@ -259,7 +263,7 @@ OPT=""                                            # OPT string for use with mong
 
 # Do we need to use a username/password?
 if [ "$DBUSERNAME" ]; then
-    OPT="$OPT --username=$DBUSERNAME --password=$DBPASSWORD"
+    OPT="$OPT --username=$DBUSERNAME --password=$DBPASSWORD --authenticationDatabase=$DBAUTHDB"
 fi
 
 # Do we use oplog for point-in-time snapshotting?
