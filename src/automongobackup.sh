@@ -32,7 +32,7 @@
 # Unnecessary if authentication is off
 # DBUSERNAME=""
 
-# Username to access the mongo server e.g. password
+# Password to access the mongo server e.g. password
 # Unnecessary if authentication is off
 # DBPASSWORD=""
 
