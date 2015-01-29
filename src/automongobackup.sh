@@ -110,6 +110,9 @@ REPLICAONSLAVE="yes"
 # Allow DBUSERNAME without DBAUTHDB
 REQUIREDBAUTHDB="yes"
 
+# Maximum files of a single backup used by split - leave empty if no split required
+# MAXFILESIZE=""
+
 # Command to run before backups (uncomment to use)
 # PREBACKUP=""
 
@@ -395,7 +398,12 @@ compression () {
         [ "$COMP" = "gzip" ] && SUFFIX=".tgz"
         [ "$COMP" = "bzip2" ] && SUFFIX=".tar.bz2"
         echo Tar and $COMP to "$file$SUFFIX"
-        cd "$dir" && tar -cf - "$file" | $COMP -c > "$file$SUFFIX"
+        cd "$dir" || return 1
+        if [ -n "$MAXFILESIZE" ]; then
+          tar -cf - "$file" | $COMP --stdout | split --bytes $MAXFILESIZE --numeric-suffixes - "${file}${SUFFIX}-"
+        else
+          tar -cf - "$file" | $COMP --stdout > "${file}${SUFFIX}"
+        fi
         cd - >/dev/null || return 1
     else
         echo "No compression option set, check advanced settings"
@@ -407,7 +415,7 @@ compression () {
         else
             COPY="cp"
         fi
-        $COPY "$1$SUFFIX" "$BACKUPDIR/latest/"
+        $COPY "$1$SUFFIX*" "$BACKUPDIR/latest/"
     fi
 
     if [ "$CLEANUP" = "yes" ]; then
