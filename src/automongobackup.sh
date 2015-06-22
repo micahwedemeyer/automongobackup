@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # MongoDB Backup Script
-# VER. 0.9
+# VER. 0.10
 # More Info: http://github.com/micahwedemeyer/automongobackup
 
 # Note, this is a lobotomized port of AutoMySQLBackup
@@ -27,6 +27,10 @@
 # Set the following variables to your system needs
 # (Detailed instructions below variables)
 #=====================================================================
+
+# Database name to specify a specific database only e.g. myawesomeapp
+# Unnecessary if backup all databases
+# DBNAME=""
 
 # Username to access the mongo server e.g. dbuser
 # Unnecessary if authentication is off
@@ -176,6 +180,9 @@ REPLICAONSLAVE="yes"
 #=====================================================================
 # Change Log
 #=====================================================================
+# VER 0.10 - (2015-06-22) (author: Markus Graf)
+#        - Added option to backup only one specific database
+#
 # VER 0.9 - (2011-10-28) (author: Joshua Keroes)
 #       - Fixed bugs and improved logic in select_secondary_member()
 #       - Fixed minor grammar issues and formatting in docs
@@ -255,7 +262,7 @@ DNOW=`date +%u`                                   # Day number of the week 1 to 
 DOM=`date +%d`                                    # Date of the Month e.g. 27
 M=`date +%B`                                      # Month e.g January
 W=`date +%V`                                      # Week Number e.g 37
-VER=0.9                                           # Version Number
+VER=0.10                                          # Version Number
 LOGFILE=$BACKUPDIR/$DBHOST-`date +%H%M`.log       # Logfile Name
 LOGERR=$BACKUPDIR/ERRORS_$DBHOST-`date +%H%M`.log # Logfile Name
 BACKUPFILES=""
@@ -269,6 +276,11 @@ fi
 # Do we use oplog for point-in-time snapshotting?
 if [ "$OPLOG" = "yes" ]; then
     OPT="$OPT --oplog"
+fi
+
+# Do we need to backup only a specific database?
+if [ "$DBNAME" ]; then
+  OPT="$OPT -d $DBNAME"
 fi
 
 # Create required directories
