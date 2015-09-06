@@ -389,6 +389,16 @@ function select_secondary_member {
     fi
 }
 
+if [ -n "$MAXFILESIZE" ]; then
+    write_file() {
+        split --bytes $MAXFILESIZE --numeric-suffixes - "${1}-"
+    }
+else
+    write_file() {
+        cat > $1
+    }
+fi
+
 # Compression function plus latest copy
 compression () {
     SUFFIX=""
@@ -399,11 +409,7 @@ compression () {
         [ "$COMP" = "bzip2" ] && SUFFIX=".tar.bz2"
         echo Tar and $COMP to "$file$SUFFIX"
         cd "$dir" || return 1
-        if [ -n "$MAXFILESIZE" ]; then
-          tar -cf - "$file" | $COMP --stdout | split --bytes $MAXFILESIZE --numeric-suffixes - "${file}${SUFFIX}-"
-        else
-          tar -cf - "$file" | $COMP --stdout > "${file}${SUFFIX}"
-        fi
+        tar -cf - "$file" | $COMP --stdout | write_file "${file}${SUFFIX}"
         cd - >/dev/null || return 1
     else
         echo "No compression option set, check advanced settings"
