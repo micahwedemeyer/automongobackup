@@ -92,6 +92,9 @@ OPLOG="yes"
 # Choose other Server if is Replica-Set Master
 REPLICAONSLAVE="yes"
 
+# Allow DBUSERNAME without DBAUTHDB
+REQUIREDBAUTHDB="yes"
+
 # Command to run before backups (uncomment to use)
 # PREBACKUP=""
 
@@ -270,7 +273,10 @@ OPT=""                                            # OPT string for use with mong
 
 # Do we need to use a username/password?
 if [ "$DBUSERNAME" ]; then
-    OPT="$OPT --username=$DBUSERNAME --password=$DBPASSWORD --authenticationDatabase=$DBAUTHDB"
+    OPT="$OPT --username=$DBUSERNAME --password=$DBPASSWORD"
+    if [ "$REQUIREDBAUTHDB" = "yes" ]; then
+        OPT="$OPT --authenticationDatabase=$DBAUTHDB"
+    fi
 fi
 
 # Do we use oplog for point-in-time snapshotting?
