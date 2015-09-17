@@ -82,7 +82,7 @@ WEEKLYRETENTION=4
 
 # Do you want monthly backups? How long do you want to keep them?
 DOMONTHLY="yes"
-MONTHLYRETENTION=2
+MONTHLYRETENTION=4
 
 # ============================================================
 # === ADVANCED OPTIONS ( Read the doc's below for details )===
@@ -490,9 +490,6 @@ elif [[ $DNOW = $WEEKLYDAY ]] && [[ $DOWEEKLY = "yes" ]] ; then
 # Daily Backup
 elif [[ $DODAILY = "yes" ]] ; then
     echo Daily Backup of Databases
-    #echo Rotating last weeks Backup...
-    #echo
-    #rm -f $BACKUPDIR/daily/*.$DOW.*
     echo
     # Delete old daily backups while respecting the set rentention policy.
     if [[ $DAILYRETENTION -ge 0 ]] ; then
