@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # MongoDB Backup Script
-# VER. 0.10
+# VER. 0.20
 # More Info: http://github.com/micahwedemeyer/automongobackup
 
 # Note, this is a lobotomized port of AutoMySQLBackup
@@ -67,12 +67,26 @@ MAXATTSIZE="4000"
 # Email Address to send mail to? (user@domain.com)
 # MAILADDR=""
 
+# ============================================================================
+# === SCHEDULING AND RETENTION OPTIONS ( Read the doc's below for details )===
+#=============================================================================
+
+# Do you want to do daily backups? How long do you want to keep them?
+DODAILY="yes"
+DAILYRETENTION=0
+
+# Which day do you want weekly backups? (1 to 7 where 1 is Monday)
+DOWEEKLY="yes"
+WEEKLYDAY=6
+WEEKLYRETENTION=4
+
+# Do you want monthly backups? How long do you want to keep them?
+DOMONTHLY="yes"
+MONTHLYRETENTION=4
+
 # ============================================================
 # === ADVANCED OPTIONS ( Read the doc's below for details )===
 #=============================================================
-
-# Which day do you want weekly backups? (1 to 7 where 1 is Monday)
-DOWEEKLY=6
 
 # Choose Compression type. (gzip or bzip2)
 COMP="gzip"
@@ -140,7 +154,7 @@ REQUIREDBAUTHDB="yes"
 # === Advanced options ===
 #
 # To set the day of the week that you would like the weekly backup to happen
-# set the DOWEEKLY setting, this can be a value from 1 to 7 where 1 is Monday,
+# set the WEEKLYDAY setting, this can be a value from 1 to 7 where 1 is Monday,
 # The default is 6 which means that weekly backups are done on a Saturday.
 #
 # Use PREBACKUP and POSTBACKUP to specify Pre and Post backup commands
@@ -151,17 +165,19 @@ REQUIREDBAUTHDB="yes"
 # Backup Rotation..
 #=====================================================================
 #
-# Daily Backups are rotated weekly.
+# Daily backups are executed if DODAILY is set to "yes". 
+# The number of daily backup copies to keep for each day (i.e. 'Monday', 'Tuesday', etc.) is set with DAILYRETENTION. 
+# DAILYRETENTION=0 rotates daily backups every week (i.e. only the most recent daily copy is kept). -1 disables rotation.
 #
-# Weekly Backups are run by default on Saturday Morning when
-# cron.daily scripts are run. This can be changed with DOWEEKLY setting.
+# Weekly backups are executed if DOWEEKLY is set to "yes".
+# WEEKLYDAY [1-7] sets which day a weekly backup occurs when cron.daily scripts are run.
+# Rotate weekly copies after the number of weeks set by WEEKLYRETENTION.
+# WEEKLYRETENTION=0 rotates weekly backups every week. -1 disables rotation.
 #
-# Weekly Backups are rotated on a 5 week cycle.
-# Monthly Backups are run on the 1st of the month.
-# Monthly Backups are NOT rotated automatically.
-#
-# It may be a good idea to copy Monthly backups offline or to another
-# server.
+# Monthly backups are executed if DOMONTHLY is set to "yes".
+# Monthy backups occur on the first day of each month when cron.daily scripts are run.
+# Rotate monthly backups after the number of months set by MONTHLYRETENTION.
+# MONTHLYRETENTION=0 rotates monthly backups upon each execution. -1 disables rotation.
 #
 #=====================================================================
 # Please Note!!
@@ -227,6 +243,10 @@ REQUIREDBAUTHDB="yes"
 #
 # VER 0.1 - (2010-05-11)
 #       - Initial Release
+#
+# VER 0.2 - (2015-09-10)
+#	- Added configurable backup rentention options, even for
+# 	  monthly backups.
 #
 #=====================================================================
 #=====================================================================
@@ -446,36 +466,51 @@ echo ======================================================================
 echo Backup Start `date`
 echo ======================================================================
 # Monthly Full Backup of all Databases
-if [ $DOM = "01" ]; then
+if [[ $DOM = "01" ]] && [[ $DOMONTHLY = "yes" ]]; then
     echo Monthly Full Backup
+    echo
+    # Delete old monthly backups while respecting the set rentention policy.
+    if [[ $MONTHLYRETENTION -ge 0 ]] ; then
+        NUM_OLD_FILES=`find $BACKUPDIR/monthly -depth -not -newermt "$MONTHLYRETENTION month ago" -type f | wc -l`
+        if [[ $NUM_OLD_FILES -gt 0 ]] ; then
+            echo Deleting "$NUM_OLD_FILES" global setting backup file\(s\) older than "$MONTHLYRETENTION" month\(s\) old.
+	    find $BACKUPDIR/monthly -not -newermt "$MONTHLYRETENTION month ago" -type f -delete
+        fi
+    fi
     FILE="$BACKUPDIR/monthly/$DATE.$M"
 
 # Weekly Backup
-elif [ $DNOW = $DOWEEKLY ]; then
+elif [[ $DNOW = $WEEKLYDAY ]] && [[ $DOWEEKLY = "yes" ]] ; then
     echo Weekly Backup
     echo
-    echo Rotating 5 weeks Backups...
-    if [ "$W" -le 05 ]; then
-        REMW=`expr 48 + $W`
-    elif [ "$W" -lt 15 ]; then
-        REMW=0`expr $W - 5`
-    else
-        REMW=`expr $W - 5`
+    if [[ $WEEKLYRETENTION -ge 0 ]] ; then
+        # Delete old weekly backups while respecting the set rentention policy.
+        NUM_OLD_FILES=`find $BACKUPDIR/weekly -depth -not -newermt "$WEEKLYRETENTION week ago" -type f | wc -l`
+        if [[ $NUM_OLD_FILES -gt 0 ]] ; then
+            echo Deleting $NUM_OLD_FILES global setting backup file\(s\) older than "$WEEKLYRETENTION" week\(s\) old.
+            find $BACKUPDIR/weekly -not -newermt "$WEEKLYRETENTION week ago" -type f -delete
+        fi
     fi
-    rm -f $BACKUPDIR/weekly/week.$REMW.*
-    echo
     FILE="$BACKUPDIR/weekly/week.$W.$DATE"
 
 # Daily Backup
-else
+elif [[ $DODAILY = "yes" ]] ; then
     echo Daily Backup of Databases
-    echo Rotating last weeks Backup...
     echo
-    rm -f $BACKUPDIR/daily/*.$DOW.*
-    echo
+    # Delete old daily backups while respecting the set rentention policy.
+    if [[ $DAILYRETENTION -ge 0 ]] ; then
+        NUM_OLD_FILES=`find $BACKUPDIR/daily -depth -name "*.$DOW.*" -not -newermt "$DAILYRETENTION week ago" -type f | wc -l`
+        if [[ $NUM_OLD_FILES > 0 ]] ; then
+            echo Deleting $NUM_OLD_FILES global setting backup file\(s\) made in previous weeks.
+            find $BACKUPDIR/daily -name "*.$DOW.*" -not -newermt "$DAILYRETENTION week ago" -type f -delete		
+        fi
+    fi
     FILE="$BACKUPDIR/daily/$DATE.$DOW"
+
 fi
+
 dbdump $FILE && compression $FILE
+
 echo ----------------------------------------------------------------------
 echo Backup End Time `date`
 echo ======================================================================
