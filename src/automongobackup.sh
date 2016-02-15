@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eo pipefail
 #
 # MongoDB Backup Script
 # VER. 0.20
