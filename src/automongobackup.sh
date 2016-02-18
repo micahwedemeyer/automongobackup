@@ -166,8 +166,8 @@ REQUIREDBAUTHDB="yes"
 # Backup Rotation..
 #=====================================================================
 #
-# Daily backups are executed if DODAILY is set to "yes". 
-# The number of daily backup copies to keep for each day (i.e. 'Monday', 'Tuesday', etc.) is set with DAILYRETENTION. 
+# Daily backups are executed if DODAILY is set to "yes".
+# The number of daily backup copies to keep for each day (i.e. 'Monday', 'Tuesday', etc.) is set with DAILYRETENTION.
 # DAILYRETENTION=0 rotates daily backups every week (i.e. only the most recent daily copy is kept). -1 disables rotation.
 #
 # Weekly backups are executed if DOWEEKLY is set to "yes".
@@ -246,8 +246,8 @@ REQUIREDBAUTHDB="yes"
 #       - Initial Release
 #
 # VER 0.2 - (2015-09-10)
-#	- Added configurable backup rentention options, even for
-# 	  monthly backups.
+#       - Added configurable backup rentention options, even for
+#         monthly backups.
 #
 #=====================================================================
 #=====================================================================
@@ -475,7 +475,7 @@ if [[ $DOM = "01" ]] && [[ $DOMONTHLY = "yes" ]]; then
         NUM_OLD_FILES=`find $BACKUPDIR/monthly -depth -not -newermt "$MONTHLYRETENTION month ago" -type f | wc -l`
         if [[ $NUM_OLD_FILES -gt 0 ]] ; then
             echo Deleting "$NUM_OLD_FILES" global setting backup file\(s\) older than "$MONTHLYRETENTION" month\(s\) old.
-	    find $BACKUPDIR/monthly -not -newermt "$MONTHLYRETENTION month ago" -type f -delete
+            find $BACKUPDIR/monthly -not -newermt "$MONTHLYRETENTION month ago" -type f -delete
         fi
     fi
     FILE="$BACKUPDIR/monthly/$DATE.$M"
@@ -503,7 +503,7 @@ elif [[ $DODAILY = "yes" ]] ; then
         NUM_OLD_FILES=`find $BACKUPDIR/daily -depth -name "*.$DOW.*" -not -newermt "$DAILYRETENTION week ago" -type f | wc -l`
         if [[ $NUM_OLD_FILES > 0 ]] ; then
             echo Deleting $NUM_OLD_FILES global setting backup file\(s\) made in previous weeks.
-            find $BACKUPDIR/daily -name "*.$DOW.*" -not -newermt "$DAILYRETENTION week ago" -type f -delete		
+            find $BACKUPDIR/daily -name "*.$DOW.*" -not -newermt "$DAILYRETENTION week ago" -type f -delete
         fi
     fi
     FILE="$BACKUPDIR/daily/$DATE.$DOW"
