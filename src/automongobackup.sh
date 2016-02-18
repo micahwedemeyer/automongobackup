@@ -33,6 +33,11 @@ set -eo pipefail
 # Unnecessary if backup all databases
 # DBNAME=""
 
+# Collections to exclude e.g. system.profile users
+# DBNAME is required
+# Unecessary if backup all collections
+# EXCLUDE_COLLECTIONS=""
+
 # Username to access the mongo server e.g. dbuser
 # Unnecessary if authentication is off
 # DBUSERNAME=""
@@ -308,6 +313,13 @@ fi
 # Do we need to backup only a specific database?
 if [ "$DBNAME" ]; then
   OPT="$OPT -d $DBNAME"
+fi
+
+# Do we need to exclude collections?
+if [ "$EXCLUDE_COLLECTIONS" ]; then
+  for x in $EXCLUDE_COLLECTIONS; do
+    OPT="$OPT --excludeCollection $x"
+  done
 fi
 
 # Create required directories
