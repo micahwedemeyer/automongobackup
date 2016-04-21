@@ -355,7 +355,7 @@ exec 2> $LOGERR     # stderr replaced with file $LOGERR.
 
 # Database dump function
 dbdump () {
-    mongodump --host=$DBHOST:$DBPORT --out=$1 $OPT
+    mongodump --quiet --host=$DBHOST:$DBPORT --out=$1 $OPT
     [ -e "$1" ] && return 0
     echo "ERROR: mongodump failed to create dumpfile: $1" >&2
     return 1
