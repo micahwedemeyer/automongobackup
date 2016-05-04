@@ -33,6 +33,11 @@ set -eo pipefail
 # Unnecessary if backup all databases
 # DBNAME=""
 
+# Collections name list to include e.g. system.profile users
+# DBNAME is required
+# Unecessary if backup all collections
+# COLLECTIONS=""
+
 # Collections to exclude e.g. system.profile users
 # DBNAME is required
 # Unecessary if backup all collections
@@ -76,6 +81,10 @@ MAXATTSIZE="4000"
 # ============================================================================
 # === SCHEDULING AND RETENTION OPTIONS ( Read the doc's below for details )===
 #=============================================================================
+
+# Do you want to do hourly backups? How long do you want to keep them?
+DOHOURLY="no"
+HOURLYRETENTION=24
 
 # Do you want to do daily backups? How long do you want to keep them?
 DODAILY="yes"
@@ -174,6 +183,10 @@ REQUIREDBAUTHDB="yes"
 # Backup Rotation..
 #=====================================================================
 #
+# Hourly backups are executed if DOHOURLY is set to "yes".
+# The number of hours backup copies to keep for each day (i.e. 'Monday', 'Tuesday', etc.) is set with DHOURLYRETENTION.
+# DHOURLYRETENTION=0 rotates hourly backups every day (i.e. only the most recent hourly copy is kept). -1 disables rotation.
+#
 # Daily backups are executed if DODAILY is set to "yes".
 # The number of daily backup copies to keep for each day (i.e. 'Monday', 'Tuesday', etc.) is set with DAILYRETENTION.
 # DAILYRETENTION=0 rotates daily backups every week (i.e. only the most recent daily copy is kept). -1 disables rotation.
@@ -208,6 +221,12 @@ REQUIREDBAUTHDB="yes"
 #=====================================================================
 # Change Log
 #=====================================================================
+# VER 0.11 - (2016-05-04) (author: Claudio Prato)
+#        - Fixed bugs in select_secondary_member() with authdb enabled
+#        - Fixed bugs in Compression function by removing the * symbol
+#        - Added incremental backup feature
+#        - Added option to select the collections to backup
+#
 # VER 0.10 - (2015-06-22) (author: Markus Graf)
 #        - Added option to backup only one specific database
 #
@@ -289,22 +308,34 @@ done
 
 PATH=/usr/local/bin:/usr/bin:/bin
 DATE=`date +%Y-%m-%d_%Hh%Mm`                      # Datestamp e.g 2002-09-21
+HOD=`date +%s`                                    # Current timestamp for PITR backup
 DOW=`date +%A`                                    # Day of the week e.g. Monday
 DNOW=`date +%u`                                   # Day number of the week 1 to 7 where 1 represents Monday
 DOM=`date +%d`                                    # Date of the Month e.g. 27
 M=`date +%B`                                      # Month e.g January
 W=`date +%V`                                      # Week Number e.g 37
-VER=0.10                                          # Version Number
+VER=0.11                                          # Version Number
 LOGFILE=$BACKUPDIR/$DBHOST-`date +%H%M`.log       # Logfile Name
 LOGERR=$BACKUPDIR/ERRORS_$DBHOST-`date +%H%M`.log # Logfile Name
 BACKUPFILES=""
 OPT=""                                            # OPT string for use with mongodump
+OPTSEC=""                                         # OPT string for use with mongodump in select_secondary_member function
+QUERY=""                                          # QUERY string for use with mongodump
+HOURLYQUERY=""                                    # HOURLYQUERY string for use with mongodump
 
 # Do we need to use a username/password?
 if [ "$DBUSERNAME" ]; then
     OPT="$OPT --username=$DBUSERNAME --password=$DBPASSWORD"
     if [ "$REQUIREDBAUTHDB" = "yes" ]; then
         OPT="$OPT --authenticationDatabase=$DBAUTHDB"
+    fi
+fi
+
+# Do we need to use a username/password for ReplicaSet Secondary Members Selection?
+if [ "$DBUSERNAME" ]; then
+    OPTSEC="$OPTSEC --username=$DBUSERNAME --password=$DBPASSWORD"
+    if [ "$REQUIREDBAUTHDB" = "yes" ]; then
+        OPTSEC="$OPTSEC --authenticationDatabase=$DBAUTHDB"
     fi
 fi
 
@@ -318,6 +349,13 @@ if [ "$DBNAME" ]; then
   OPT="$OPT -d $DBNAME"
 fi
 
+# Do we need to backup only a specific collections?
+if [ "$COLLECTIONS" ]; then
+  for x in $COLLECTIONS; do
+    OPT="$OPT --collection $x"
+  done
+fi
+
 # Do we need to exclude collections?
 if [ "$EXCLUDE_COLLECTIONS" ]; then
   for x in $EXCLUDE_COLLECTIONS; do
@@ -325,8 +363,23 @@ if [ "$EXCLUDE_COLLECTIONS" ]; then
   done
 fi
 
+# Do we use a filter for hourly point-in-time snapshotting?
+if [ "$DOHOURLY" == "yes" ]; then
+
+  # getting PITR START timestamp
+  [ "$COMP" = "gzip" ] && HOURLYQUERY=`ls -t $BACKUPDIR/hourly | head -n 1 | cut -d '.' -f3`
+
+  # setting the start timestamp to NOW for the first execution
+  if [ -z "$HOURLYQUERY" ]; then
+      QUERY=""
+    else
+      # limit the documents included in the output of mongodump
+      QUERY='{ "ts" : { $gt :  Timestamp('$HOURLYQUERY', 1) } }'
+  fi
+fi
+
 # Create required directories
-mkdir -p $BACKUPDIR/{daily,weekly,monthly} || shellout 'failed to create directories'
+mkdir -p $BACKUPDIR/{hourly,daily,weekly,monthly} || shellout 'failed to create directories'
 
 if [ "$LATEST" = "yes" ]; then
     rm -rf "$BACKUPDIR/latest"
@@ -358,7 +411,13 @@ exec 2> $LOGERR     # stderr replaced with file $LOGERR.
 
 # Database dump function
 dbdump () {
-    mongodump --quiet --host=$DBHOST:$DBPORT --out=$1 $OPT
+    if [ -n "$QUERY" ]; then
+        # filter for point-in-time snapshotting and if DOHOURLY=yes
+        mongodump --quiet --host=$DBHOST:$DBPORT --out=$1 $OPT -q "$QUERY"
+      else
+        # all others backups type
+        mongodump --quiet --host=$DBHOST:$DBPORT --out=$1 $OPT
+    fi
     [ -e "$1" ] && return 0
     echo "ERROR: mongodump failed to create dumpfile: $1" >&2
     return 1
@@ -373,7 +432,7 @@ function select_secondary_member {
     local __return=$1
 
     # Return list of with all replica set members
-    members=( $(mongo --quiet --host $DBHOST:$DBPORT --eval 'rs.conf().members.forEach(function(x){ print(x.host) })') )
+    members=( $(mongo --quiet --host $DBHOST:$DBPORT --eval 'rs.conf().members.forEach(function(x){ print(x.host) })' $OPTSEC ) )
 
     # Check each replset member to see if it's a secondary and return it.
     if [ ${#members[@]} -gt 1 ]; then
@@ -433,7 +492,7 @@ compression () {
         else
             COPY="cp"
         fi
-        $COPY "$1$SUFFIX*" "$BACKUPDIR/latest/"
+        $COPY "$1$SUFFIX" "$BACKUPDIR/latest/"
     fi
 
     if [ "$CLEANUP" = "yes" ]; then
@@ -533,6 +592,21 @@ elif [[ $DODAILY = "yes" ]] ; then
         fi
     fi
     FILE="$BACKUPDIR/daily/$DATE.$DOW"
+
+# Hourly Backup
+elif [[ $DOHOURLY = "yes" ]] ; then
+    echo Hourly Backup of Databases
+    echo
+    # Delete old hourly backups while respecting the set rentention policy.
+    if [[ $HOURLYRETENTION -ge 0 ]] ; then
+        NUM_OLD_FILES=`find $BACKUPDIR/hourly -depth -name "*.$DOW.*" -not -newermt "$HOURLYRETENTION hour ago" -type f | wc -l`
+        if [[ $NUM_OLD_FILES > 0 ]] ; then
+            echo Deleting $NUM_OLD_FILES global setting backup file\(s\) made in previous weeks.
+            find $BACKUPDIR/hourly -name "*.$DOW.*" -not -newermt "$HOURLYRETENTION hour ago" -type f -delete
+        fi
+    fi
+    FILE="$BACKUPDIR/hourly/$DATE.$DOW.$HOD"
+    # convert timestamp to date: echo $TIMESTAMP | gawk '{print strftime("%c", $0)}'
 
 fi
 
