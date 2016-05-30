@@ -438,7 +438,7 @@ function select_secondary_member {
     if [ ${#members[@]} -gt 1 ]; then
         for member in "${members[@]}"; do
 
-            is_secondary=$(mongo --quiet --host $member --eval 'rs.isMaster().secondary')
+            is_secondary=$(mongo --quiet --host $member --eval 'rs.isMaster().secondary' $OPTSEC )
             case "$is_secondary" in
                 'true')     # First secondary wins ...
                     secondary=$member
