@@ -73,7 +73,7 @@ BACKUPDIR="/var/backups/mongodb"
 MAILCONTENT="stdout"
 
 # Set the maximum allowed email size in k. (4000 = approx 5MB email [see docs])
-MAXATTSIZE="4000"
+export MAXATTSIZE="4000"
 
 # Email Address to send mail to? (user@domain.com)
 # MAILADDR=""
@@ -288,7 +288,7 @@ REQUIREDBAUTHDB="yes"
 
 shellout () {
     if [ -n "$1" ]; then
-        echo $1
+        echo "$1"
         exit 1
     fi
     exit 0
@@ -297,27 +297,28 @@ shellout () {
 # External config - override default values set above
 for x in default sysconfig; do
   if [ -f "/etc/$x/automongobackup" ]; then
+      # shellcheck source=/dev/null
       source /etc/$x/automongobackup
   fi
 done
 
 # Include extra config file if specified on commandline, e.g. for backuping several remote dbs from central server
+# shellcheck source=/dev/null
 [ ! -z "$1" ] && [ -f "$1" ] && source ${1}
 
 #=====================================================================
 
 PATH=/usr/local/bin:/usr/bin:/bin
-DATE=`date +%Y-%m-%d_%Hh%Mm`                      # Datestamp e.g 2002-09-21
-HOD=`date +%s`                                    # Current timestamp for PITR backup
-DOW=`date +%A`                                    # Day of the week e.g. Monday
-DNOW=`date +%u`                                   # Day number of the week 1 to 7 where 1 represents Monday
-DOM=`date +%d`                                    # Date of the Month e.g. 27
-M=`date +%B`                                      # Month e.g January
-W=`date +%V`                                      # Week Number e.g 37
+DATE=$(date +%Y-%m-%d_%Hh%Mm)                     # Datestamp e.g 2002-09-21
+HOD=$(date +%s)                                   # Current timestamp for PITR backup
+DOW=$(date +%A)                                   # Day of the week e.g. Monday
+DNOW=$(date +%u)                                  # Day number of the week 1 to 7 where 1 represents Monday
+DOM=$(date +%d)                                   # Date of the Month e.g. 27
+M=$(date +%B)                                     # Month e.g January
+W=$(date +%V)                                     # Week Number e.g 37
 VER=0.11                                          # Version Number
-LOGFILE=$BACKUPDIR/$DBHOST-`date +%H%M`.log       # Logfile Name
-LOGERR=$BACKUPDIR/ERRORS_$DBHOST-`date +%H%M`.log # Logfile Name
-BACKUPFILES=""
+LOGFILE=$BACKUPDIR/$DBHOST-$(date +%H%M).log       # Logfile Name
+LOGERR=$BACKUPDIR/ERRORS_$DBHOST-$(date +%H%M).log # Logfile Name
 OPT=""                                            # OPT string for use with mongodump
 OPTSEC=""                                         # OPT string for use with mongodump in select_secondary_member function
 QUERY=""                                          # QUERY string for use with mongodump
@@ -367,13 +368,15 @@ fi
 if [ "$DOHOURLY" == "yes" ]; then
 
   # getting PITR START timestamp
-  [ "$COMP" = "gzip" ] && HOURLYQUERY=`ls -t $BACKUPDIR/hourly | head -n 1 | cut -d '.' -f3`
+  # shellcheck disable=SC2012
+  [ "$COMP" = "gzip" ] && HOURLYQUERY=$(ls -t $BACKUPDIR/hourly | head -n 1 | cut -d '.' -f3)
 
   # setting the start timestamp to NOW for the first execution
   if [ -z "$HOURLYQUERY" ]; then
       QUERY=""
     else
       # limit the documents included in the output of mongodump
+      # shellcheck disable=SC2016
       QUERY='{ "ts" : { $gt :  Timestamp('$HOURLYQUERY', 1) } }'
   fi
 fi
@@ -387,22 +390,22 @@ if [ "$LATEST" = "yes" ]; then
 fi
 
 # Check for correct sed usage
-if [ $(uname -s) = 'Darwin' -o $(uname -s) = 'FreeBSD' ]; then
+if [ "$(uname -s)" = 'Darwin' ] || [ "$(uname -s)" = 'FreeBSD' ]; then
     SED="sed -i ''"
 else
     SED="sed -i"
 fi
 
 # IO redirection for logging.
-touch $LOGFILE
+touch "$LOGFILE"
 exec 6>&1           # Link file descriptor #6 with stdout.
                     # Saves stdout.
-exec > $LOGFILE     # stdout replaced with file $LOGFILE.
+exec > "$LOGFILE"     # stdout replaced with file $LOGFILE.
 
-touch $LOGERR
+touch "$LOGERR"
 exec 7>&2           # Link file descriptor #7 with stderr.
                     # Saves stderr.
-exec 2> $LOGERR     # stderr replaced with file $LOGERR.
+exec 2> "$LOGERR"     # stderr replaced with file $LOGERR.
 
 # When a desire is to receive log via e-mail then we close stdout and stderr.
 [ "x$MAILCONTENT" == "xlog" ] && exec 6>&- 7>&-
@@ -413,10 +416,12 @@ exec 2> $LOGERR     # stderr replaced with file $LOGERR.
 dbdump () {
     if [ -n "$QUERY" ]; then
         # filter for point-in-time snapshotting and if DOHOURLY=yes
-        mongodump --quiet --host=$DBHOST:$DBPORT --out=$1 $OPT -q "$QUERY"
+        # shellcheck disable=SC2086
+        mongodump --quiet --host=$DBHOST:$DBPORT --out="$1" $OPT -q "$QUERY"
       else
         # all others backups type
-        mongodump --quiet --host=$DBHOST:$DBPORT --out=$1 $OPT
+        # shellcheck disable=SC2086
+        mongodump --quiet --host=$DBHOST:$DBPORT --out="$1" $OPT
     fi
     [ -e "$1" ] && return 0
     echo "ERROR: mongodump failed to create dumpfile: $1" >&2
@@ -432,13 +437,14 @@ function select_secondary_member {
     local __return=$1
 
     # Return list of with all replica set members
+    # shellcheck disable=SC2086
     members=( $(mongo --quiet --host $DBHOST:$DBPORT --eval 'rs.conf().members.forEach(function(x){ print(x.host) })' $OPTSEC ) )
 
     # Check each replset member to see if it's a secondary and return it.
     if [ ${#members[@]} -gt 1 ]; then
         for member in "${members[@]}"; do
 
-            is_secondary=$(mongo --quiet --host $member --eval 'rs.isMaster().secondary' $OPTSEC )
+            is_secondary=$(mongo --quiet --host "$member" --eval 'rs.isMaster().secondary' $OPTSEC )
             case "$is_secondary" in
                 'true')     # First secondary wins ...
                     secondary=$member
@@ -456,25 +462,26 @@ function select_secondary_member {
 
     if [ -n "$secondary" ]; then
         # Ugly hack to return value from a Bash function ...
+        # shellcheck disable=SC2086
         eval $__return="'$secondary'"
     fi
 }
 
 if [ -n "$MAXFILESIZE" ]; then
     write_file() {
-        split --bytes $MAXFILESIZE --numeric-suffixes - "${1}-"
+        split --bytes "$MAXFILESIZE" --numeric-suffixes - "${1}-"
     }
 else
     write_file() {
-        cat > $1
+        cat > "$1"
     }
 fi
 
 # Compression function plus latest copy
 compression () {
     SUFFIX=""
-    dir=$(dirname $1)
-    file=$(basename $1)
+    dir=$(dirname "$1")
+    file=$(basename "$1")
     if [ -n "$COMP" ]; then
         [ "$COMP" = "gzip" ] && SUFFIX=".tgz"
         [ "$COMP" = "bzip2" ] && SUFFIX=".tar.bz2"
@@ -508,15 +515,15 @@ if [ "$PREBACKUP" ]; then
     echo ======================================================================
     echo "Prebackup command output."
     echo
-    eval $PREBACKUP
+    eval "$PREBACKUP"
     echo
     echo ======================================================================
     echo
 fi
 
 # Hostname for LOG information
-if [ "$DBHOST" = "localhost" -o "$DBHOST" = "127.0.0.1" ]; then
-    HOST=`hostname`
+if [ "$DBHOST" = "localhost" ] || [ "$DBHOST" = "127.0.0.1" ]; then
+    HOST=$(hostname)
     if [ "$SOCKET" ]; then
         OPT="$OPT --socket=$SOCKET"
     fi
@@ -546,10 +553,10 @@ if [ ! -z "$SECONDARY_WARNING" ]; then
 fi
 
 echo
-echo Backup of Database Server - $HOST on $DBHOST
+echo "Backup of Database Server - $HOST on $DBHOST"
 echo ======================================================================
 
-echo Backup Start `date`
+echo "Backup Start $(date)"
 echo ======================================================================
 # Monthly Full Backup of all Databases
 if [[ $DOM = "01" ]] && [[ $DOMONTHLY = "yes" ]]; then
@@ -557,7 +564,7 @@ if [[ $DOM = "01" ]] && [[ $DOMONTHLY = "yes" ]]; then
     echo
     # Delete old monthly backups while respecting the set rentention policy.
     if [[ $MONTHLYRETENTION -ge 0 ]] ; then
-        NUM_OLD_FILES=`find $BACKUPDIR/monthly -depth -not -newermt "$MONTHLYRETENTION month ago" -type f | wc -l`
+        NUM_OLD_FILES=$(find $BACKUPDIR/monthly -depth -not -newermt "$MONTHLYRETENTION month ago" -type f | wc -l)
         if [[ $NUM_OLD_FILES -gt 0 ]] ; then
             echo Deleting "$NUM_OLD_FILES" global setting backup file\(s\) older than "$MONTHLYRETENTION" month\(s\) old.
             find $BACKUPDIR/monthly -not -newermt "$MONTHLYRETENTION month ago" -type f -delete
@@ -566,14 +573,14 @@ if [[ $DOM = "01" ]] && [[ $DOMONTHLY = "yes" ]]; then
     FILE="$BACKUPDIR/monthly/$DATE.$M"
 
 # Weekly Backup
-elif [[ $DNOW = $WEEKLYDAY ]] && [[ $DOWEEKLY = "yes" ]] ; then
+elif [[ "$DNOW" = "$WEEKLYDAY" ]] && [[ "$DOWEEKLY" = "yes" ]] ; then
     echo Weekly Backup
     echo
     if [[ $WEEKLYRETENTION -ge 0 ]] ; then
         # Delete old weekly backups while respecting the set rentention policy.
-        NUM_OLD_FILES=`find $BACKUPDIR/weekly -depth -not -newermt "$WEEKLYRETENTION week ago" -type f | wc -l`
+        NUM_OLD_FILES=$(find $BACKUPDIR/weekly -depth -not -newermt "$WEEKLYRETENTION week ago" -type f | wc -l)
         if [[ $NUM_OLD_FILES -gt 0 ]] ; then
-            echo Deleting $NUM_OLD_FILES global setting backup file\(s\) older than "$WEEKLYRETENTION" week\(s\) old.
+            echo Deleting "$NUM_OLD_FILES" global setting backup file\(s\) older than "$WEEKLYRETENTION" week\(s\) old.
             find $BACKUPDIR/weekly -not -newermt "$WEEKLYRETENTION week ago" -type f -delete
         fi
     fi
@@ -585,10 +592,10 @@ elif [[ $DODAILY = "yes" ]] ; then
     echo
     # Delete old daily backups while respecting the set rentention policy.
     if [[ $DAILYRETENTION -ge 0 ]] ; then
-        NUM_OLD_FILES=`find $BACKUPDIR/daily -depth -name "*.$DOW.*" -not -newermt "$DAILYRETENTION week ago" -type f | wc -l`
-        if [[ $NUM_OLD_FILES > 0 ]] ; then
-            echo Deleting $NUM_OLD_FILES global setting backup file\(s\) made in previous weeks.
-            find $BACKUPDIR/daily -name "*.$DOW.*" -not -newermt "$DAILYRETENTION week ago" -type f -delete
+        NUM_OLD_FILES=$(find $BACKUPDIR/daily -depth -name "*.$DOW.*" -not -newermt "$DAILYRETENTION week ago" -type f | wc -l)
+        if [[ $NUM_OLD_FILES -gt 0 ]] ; then
+            echo Deleting "$NUM_OLD_FILES" global setting backup file\(s\) made in previous weeks.
+            find "$BACKUPDIR/daily" -name "*.$DOW.*" -not -newermt "$DAILYRETENTION week ago" -type f -delete
         fi
     fi
     FILE="$BACKUPDIR/daily/$DATE.$DOW"
@@ -599,9 +606,9 @@ elif [[ $DOHOURLY = "yes" ]] ; then
     echo
     # Delete old hourly backups while respecting the set rentention policy.
     if [[ $HOURLYRETENTION -ge 0 ]] ; then
-        NUM_OLD_FILES=`find $BACKUPDIR/hourly -depth -name "*.$DOW.*" -not -newermt "$HOURLYRETENTION hour ago" -type f | wc -l`
-        if [[ $NUM_OLD_FILES > 0 ]] ; then
-            echo Deleting $NUM_OLD_FILES global setting backup file\(s\) made in previous weeks.
+        NUM_OLD_FILES=$(find $BACKUPDIR/hourly -depth -name "*.$DOW.*" -not -newermt "$HOURLYRETENTION hour ago" -type f | wc -l)
+        if [[ $NUM_OLD_FILES -gt 0 ]] ; then
+            echo "Deleting $NUM_OLD_FILES global setting backup file\(s\) made in previous weeks."
             find $BACKUPDIR/hourly -name "*.$DOW.*" -not -newermt "$HOURLYRETENTION hour ago" -type f -delete
         fi
     fi
@@ -610,15 +617,15 @@ elif [[ $DOHOURLY = "yes" ]] ; then
 
 fi
 
-dbdump $FILE && compression $FILE
+dbdump "$FILE" && compression "$FILE"
 
 echo ----------------------------------------------------------------------
-echo Backup End Time `date`
+echo "Backup End Time $(date)"
 echo ======================================================================
 
 echo Total disk space used for backup storage..
 echo Size - Location
-echo `du -hs "$BACKUPDIR"`
+du -hs "$BACKUPDIR"
 echo
 echo ======================================================================
 
@@ -627,7 +634,7 @@ if [ "$POSTBACKUP" ]; then
     echo ======================================================================
     echo "Postbackup command output."
     echo
-    eval $POSTBACKUP
+    eval "$POSTBACKUP"
     echo
     echo ======================================================================
 fi
@@ -636,15 +643,15 @@ fi
 [ ! "x$MAILCONTENT" == "xlog" ] && exec 1>&6 2>&7 6>&- 7>&-
 
 if [ -s "$LOGERR" ]; then
-    eval $SED "/^connected/d" "$LOGERR"
+    eval "$SED" "/^connected/d" "$LOGERR"
 fi
 
 if [ "$MAILCONTENT" = "log" ]; then
-    cat "$LOGFILE" | mail -s "Mongo Backup Log for $HOST - $DATE" $MAILADDR
+    mail -s "Mongo Backup Log for $HOST - $DATE" "$MAILADDR" < "$LOGFILE"
 
     if [ -s "$LOGERR" ]; then
         cat "$LOGERR"
-        cat "$LOGERR" | mail -s "ERRORS REPORTED: Mongo Backup error Log for $HOST - $DATE" $MAILADDR
+        mail -s "ERRORS REPORTED: Mongo Backup error Log for $HOST - $DATE" "$MAILADDR" < "$LOGERR"
     fi
 else
     if [ -s "$LOGERR" ]; then
