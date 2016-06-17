@@ -617,6 +617,13 @@ elif [[ $DOHOURLY = "yes" ]] ; then
 
 fi
 
+# FILE will not be set if no frequency is selected.
+if [[ -z "$FILE" ]] ; then
+  echo "ERROR: No backup frequency was chosen."
+  echo "Please set one of DOHOURLY,DODAILY,DOWEEKLY,DOMONTHLY to \"yes\"" 
+  exit 1
+fi
+
 dbdump "$FILE" && compression "$FILE"
 
 echo ----------------------------------------------------------------------
