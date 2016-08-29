@@ -1,3 +1,7 @@
+<!--- Please notice that this Project is not under current/heavy development -->
+<!--- If you would like to take ownership, get in contact with the maintainers -->
+
+
 <!--- Provide a general summary of the issue in the Title above -->
 
 ## Expected Behavior
