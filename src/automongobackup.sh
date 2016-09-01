@@ -389,6 +389,23 @@ if [ "$LATEST" = "yes" ]; then
     mkdir -p "$BACKUPDIR/latest" || shellout 'failed to create directory'
 fi
 
+# Do we use a filter for hourly point-in-time snapshotting?
+if [ "$DOHOURLY" == "yes" ]; then
+
+  # getting PITR START timestamp
+  # shellcheck disable=SC2012
+  [ "$COMP" = "gzip" ] && HOURLYQUERY=$(ls -t $BACKUPDIR/hourly | head -n 1 | cut -d '.' -f3)
+
+  # setting the start timestamp to NOW for the first execution
+  if [ -z "$HOURLYQUERY" ]; then
+      QUERY=""
+    else
+      # limit the documents included in the output of mongodump
+      # shellcheck disable=SC2016
+      QUERY='{ "ts" : { $gt :  Timestamp('$HOURLYQUERY', 1) } }'
+  fi
+fi
+
 # Check for correct sed usage
 if [ "$(uname -s)" = 'Darwin' ] || [ "$(uname -s)" = 'FreeBSD' ]; then
     SED="sed -i ''"
