@@ -609,10 +609,10 @@ elif [[ $DODAILY = "yes" ]] ; then
     echo
     # Delete old daily backups while respecting the set rentention policy.
     if [[ $DAILYRETENTION -ge 0 ]] ; then
-        NUM_OLD_FILES=$(find $BACKUPDIR/daily -depth -name "*.$DOW.*" -not -newermt "$DAILYRETENTION week ago" -type f | wc -l)
+        NUM_OLD_FILES=$(find $BACKUPDIR/daily -depth -not -newermt "$DAILYRETENTION days ago" -type f | wc -l)
         if [[ $NUM_OLD_FILES -gt 0 ]] ; then
             echo Deleting "$NUM_OLD_FILES" global setting backup file\(s\) made in previous weeks.
-            find "$BACKUPDIR/daily" -name "*.$DOW.*" -not -newermt "$DAILYRETENTION week ago" -type f -delete
+            find "$BACKUPDIR/daily" -not -newermt "$DAILYRETENTION days ago" -type f -delete
         fi
     fi
     FILE="$BACKUPDIR/daily/$DATE.$DOW"
@@ -623,10 +623,10 @@ elif [[ $DOHOURLY = "yes" ]] ; then
     echo
     # Delete old hourly backups while respecting the set rentention policy.
     if [[ $HOURLYRETENTION -ge 0 ]] ; then
-        NUM_OLD_FILES=$(find $BACKUPDIR/hourly -depth -name "*.$DOW.*" -not -newermt "$HOURLYRETENTION hour ago" -type f | wc -l)
+        NUM_OLD_FILES=$(find $BACKUPDIR/hourly -depth -not -newermt "$HOURLYRETENTION hour ago" -type f | wc -l)
         if [[ $NUM_OLD_FILES -gt 0 ]] ; then
             echo "Deleting $NUM_OLD_FILES global setting backup file\(s\) made in previous weeks."
-            find $BACKUPDIR/hourly -name "*.$DOW.*" -not -newermt "$HOURLYRETENTION hour ago" -type f -delete
+            find $BACKUPDIR/hourly -not -newermt "$HOURLYRETENTION hour ago" -type f -delete
         fi
     fi
     FILE="$BACKUPDIR/hourly/$DATE.$DOW.$HOD"
