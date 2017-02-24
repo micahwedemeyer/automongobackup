@@ -435,10 +435,16 @@ dbdump () {
         # filter for point-in-time snapshotting and if DOHOURLY=yes
         # shellcheck disable=SC2086
         mongodump --quiet --host=$DBHOST:$DBPORT --out="$1" $OPT -q "$QUERY"
+        MDUMPSTATUS=$?
       else
         # all others backups type
         # shellcheck disable=SC2086
         mongodump --quiet --host=$DBHOST:$DBPORT --out="$1" $OPT
+        MDUMPSTATUS=$?
+    fi
+    if [ $MDUMPSTATUS -ne 0 ]; then
+        echo "ERROR: mongodump failed: $1" >&2
+        return 1
     fi
     [ -e "$1" ] && return 0
     echo "ERROR: mongodump failed to create dumpfile: $1" >&2
