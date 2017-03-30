@@ -341,7 +341,7 @@ if [ "$DBUSERNAME" ]; then
 fi
 
 # Do we use oplog for point-in-time snapshotting?
-if [ "$OPLOG" = "yes" ] && [ "$DBNAME" != "yes" ]; then
+if [ "$OPLOG" = "yes" ] && [ -z "$DBNAME" ]; then
     OPT="$OPT --oplog"
 fi
 
